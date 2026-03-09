@@ -1,0 +1,5 @@
+{
+  "name": "Digital Don SIM DATABASE",
+  "description": "A high-end VIP SIM database lookup tool with real-time map integration.",
+  "requestFramePermissions": ["geolocation"]
+}

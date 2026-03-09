@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>My Google AI Studio App</title>
+    <script>
+      // Prevent libraries from trying to overwrite window.fetch if it's a read-only getter
+      try {
+        const originalFetch = window.fetch;
+        Object.defineProperty(window, 'fetch', {
+          configurable: true,
+          enumerable: true,
+          get: function() { return originalFetch; },
+          set: function(v) {
+            console.warn("Environment: blocked attempt to overwrite window.fetch", v);
+          }
+        });
+      } catch (e) {
+        console.log("Environment: window.fetch is read-only and non-configurable.");
+      }
+
+      // Global error handler to help debug fatal crashes
+      window.onerror = function(message, source, lineno, colno, error) {
+        const errorDiv = document.createElement('div');
+        errorDiv.style.position = 'fixed';
+        errorDiv.style.top = '0';
+        errorDiv.style.left = '0';
+        errorDiv.style.width = '100%';
+        errorDiv.style.height = '100%';
+        errorDiv.style.backgroundColor = 'rgba(255, 0, 0, 0.9)';
+        errorDiv.style.color = 'white';
+        errorDiv.style.padding = '20px';
+        errorDiv.style.zIndex = '999999';
+        errorDiv.style.overflow = 'auto';
+        errorDiv.style.fontFamily = 'monospace';
+        
+        let stack = error ? error.stack : 'No stack trace available';
+        errorDiv.innerHTML = '<h1>Fatal Error</h1>' +
+          '<p><strong>Message:</strong> ' + message + '</p>' +
+          '<p><strong>Source:</strong> ' + source + ':' + lineno + ':' + colno + '</p>' +
+          '<pre>' + stack + '</pre>';
+        
+        document.body.appendChild(errorDiv);
+        return false;
+      };
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
+
