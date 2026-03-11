@@ -44,7 +44,7 @@ interface SimData {
   status?: string;
 }
 
-const WHATSAPP_CHANNEL = "https://whatsapp.com/channel/0029VbD6awr35fLtlrq2Ov3M";
+const WHATSAPP_CHANNEL = "https://www.whatsapp.com/channel/0029Vb688BZ6GcGO9OwJc621";
 
 // Component to update map view
 function ChangeView({ center }: { center: [number, number] }) {
@@ -110,7 +110,7 @@ export default function App() {
               <ShieldCheck className="text-white w-6 h-6" />
             </div>
             <div>
-              <h1 className="text-xl font-bold tracking-tight">Malik Waeem <span className="text-purple-500">Database</span></h1>
+              <h1 className="text-xl font-bold tracking-tight">LWS <span className="text-purple-500">DATABASE</span></h1>
               <p className="text-[10px] uppercase tracking-widest text-white/40 font-semibold">VIP SIM TRACKER PRO</p>
             </div>
           </div>
@@ -219,7 +219,7 @@ export default function App() {
             <div className="w-8 h-8 bg-white/5 rounded-lg flex items-center justify-center border border-white/10">
               <ShieldCheck className="w-4 h-4 text-purple-500" />
             </div>
-            <span className="font-bold tracking-tight">Malik Waeem Database</span>
+            <span className="font-bold tracking-tight">LWS DATABASE</span>
           </div>
           
           <p className="text-white/40 text-sm max-w-md mb-8">
@@ -240,7 +240,7 @@ export default function App() {
           </div>
 
           <div className="mt-12 pt-8 border-t border-white/5 w-full flex flex-col items-center gap-4 text-[10px] uppercase tracking-[0.3em] text-white/20 font-bold">
-            <p>&copy; 2024 Malik Waeem SIM Database &bull; ALL RIGHTS RESERVED</p>
+            <p>&copy; 2024 LWS DATABASE &bull; ALL RIGHTS RESERVED</p>
             <a 
               href="https://whatsapp.com/channel/0029Vb688BZ6GcGO9OwJc621" 
               target="_blank" 

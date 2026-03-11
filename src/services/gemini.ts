@@ -1,6 +1,12 @@
 import { GoogleGenAI } from "@google/genai";
 
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || "" });
+// Safe check for process.env to prevent Vite browser crashes
+const apiKey = typeof process !== "undefined" && process?.env?.GEMINI_API_KEY 
+  ? process.env.GEMINI_API_KEY 
+  // @ts-ignore
+  : (typeof import.meta !== "undefined" && import.meta.env?.VITE_GEMINI_API_KEY ? import.meta.env.VITE_GEMINI_API_KEY : "");
+
+const ai = new GoogleGenAI({ apiKey: apiKey || "" });
 
 const cache = new Map<string, string[]>();
 
