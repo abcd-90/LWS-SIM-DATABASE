@@ -3,7 +3,7 @@ import {
   ShieldAlert, Trash2, Settings, ShieldCheck, Users, 
   Activity, Eye, LogOut, Lock, Globe, Palette, Download,
   CheckCircle, MessageSquare, BarChart3, PieChart as PieIcon,
-  MousePointer2, Search
+  MousePointer2, Search, Skull, Ban, AlertTriangle
 } from 'lucide-react';
 import { useAppStore } from '../store';
 import JSZip from 'jszip';
@@ -26,7 +26,7 @@ export default function AdminPanel({ onClose }: { onClose: () => void }) {
     vipUsers, addVipUser
   } = useAppStore();
 
-  const [activeTab, setActiveTab] = useState<'stats' | 'logs' | 'branding' | 'security' | 'vips'>('stats');
+  const [activeTab, setActiveTab] = useState<'stats' | 'logs' | 'branding' | 'security' | 'vips' | 'scammers'>('stats');
   
   // Login State
   const [loginUser, setLoginUser] = useState('');
@@ -56,6 +56,7 @@ export default function AdminPanel({ onClose }: { onClose: () => void }) {
   // Security State
   const [newAdminPass, setNewAdminPass] = useState('');
   const [newIp, setNewIp] = useState('');
+  const [scammerNum, setScammerNum] = useState('');
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
@@ -85,7 +86,8 @@ export default function AdminPanel({ onClose }: { onClose: () => void }) {
       contactInfo,
       apiEndpoint: newApiEndpoint,
       scraperMessage,
-      scraperContact
+      scraperContact,
+      scammers: appConfig.scammers || []
     });
     toast.success('Branding & Subs Updated Successfully');
   };
@@ -204,11 +206,12 @@ export default function AdminPanel({ onClose }: { onClose: () => void }) {
           </div>
           
           <div className="flex-1 overflow-x-auto no-scrollbar scroll-smooth">
-            <div className="flex min-w-max">
+            <div className="flex min-w-max px-2">
               <NavBtn active={activeTab === 'stats'} onClick={() => setActiveTab('stats')} icon={Activity} label="Stats" />
               <NavBtn active={activeTab === 'logs'} onClick={() => setActiveTab('logs')} icon={Eye} label="Logs" />
               <NavBtn active={activeTab === 'branding'} onClick={() => setActiveTab('branding')} icon={Palette} label="Style" />
               <NavBtn active={activeTab === 'vips'} onClick={() => setActiveTab('vips')} icon={Users} label="VIP" />
+              <NavBtn active={activeTab === 'scammers'} onClick={() => setActiveTab('scammers')} icon={Skull} label="Scammers" />
               <NavBtn active={activeTab === 'security'} onClick={() => setActiveTab('security')} icon={ShieldCheck} label="Access" />
             </div>
           </div>
@@ -569,6 +572,81 @@ export default function AdminPanel({ onClose }: { onClose: () => void }) {
                    </div>
                 </div>
              </div>
+          )}
+
+          {activeTab === 'scammers' && (
+            <div className="animate-in fade-in slide-in-from-bottom-2 duration-500 max-w-4xl">
+              <h3 className="text-xl font-bold mb-1 flex items-center gap-2">
+                <Skull className="w-6 h-6 text-red-500" /> Scammer Database (Manual Flagging)
+              </h3>
+              <p className="text-sm text-white/40 mb-8">Numbers added here will show a massive RED warning to users during search.</p>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div className="bg-red-500/5 border border-red-500/10 p-6 rounded-3xl">
+                  <h4 className="text-xs font-bold uppercase tracking-widest mb-4 flex items-center gap-2 text-red-400">
+                    <Ban className="w-4 h-4" /> Add Record
+                  </h4>
+                  <div className="space-y-4">
+                    <input 
+                      type="text" 
+                      placeholder="Scammer Phone Number" 
+                      className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-sm outline-none focus:border-red-500"
+                      value={scammerNum}
+                      onChange={(e) => setScammerNum(e.target.value)}
+                    />
+                    <button 
+                      onClick={() => {
+                        if (!scammerNum) return;
+                        const clean = scammerNum.replace(/\D/g, '');
+                        const current = appConfig.scammers || [];
+                        if (current.includes(clean)) return toast.error('Already flagged');
+                        updateAppConfig({ scammers: [...current, clean] });
+                        setScammerNum('');
+                        toast.success('Number flagged as Scammer');
+                      }}
+                      className="w-full bg-red-600 hover:bg-red-500 py-3 rounded-xl font-bold text-xs shadow-lg shadow-red-500/20"
+                    >
+                      Ban Globally
+                    </button>
+                  </div>
+                </div>
+
+                <div className="bg-white/5 border border-white/10 p-6 rounded-3xl h-[400px] flex flex-col">
+                  <h4 className="text-xs font-bold uppercase tracking-widest mb-4 flex items-center gap-2 text-white/40">
+                    <ShieldAlert className="w-4 h-4" /> Blacklisted Numbers ({appConfig.scammers?.length || 0})
+                  </h4>
+                  <div className="flex-grow overflow-y-auto no-scrollbar space-y-2">
+                    {appConfig.scammers?.map((num: string) => (
+                      <div key={num} className="bg-black/40 border border-white/5 p-4 rounded-xl flex items-center justify-between group">
+                        <div className="flex items-center gap-3">
+                           <div className="w-8 h-8 bg-red-500/10 rounded-lg flex items-center justify-center text-red-500">
+                              <AlertTriangle className="w-4 h-4" />
+                           </div>
+                           <code className="text-sm font-black text-red-400">{num}</code>
+                        </div>
+                        <button 
+                          onClick={() => {
+                            updateAppConfig({ 
+                              scammers: appConfig.scammers.filter((n: string) => n !== num) 
+                            });
+                            toast.success('Removed from database');
+                          }}
+                          className="p-2 bg-red-500/10 hover:bg-red-500 text-red-500 hover:text-white rounded-lg transition-all opacity-0 group-hover:opacity-100"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    ))}
+                    {(!appConfig.scammers || appConfig.scammers.length === 0) && (
+                      <div className="h-full flex flex-col items-center justify-center text-white/10 italic">
+                         <Ban className="w-12 h-12 mb-4 opacity-5" />
+                         <p>No scammers flagged</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
           )}
 
           {activeTab === 'security' && (

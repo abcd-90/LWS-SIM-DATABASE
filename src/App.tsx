@@ -765,15 +765,15 @@ export default function App() {
             </a>
           </div>
 
-          <div className="mt-12 pt-8 border-t border-white/5 w-full flex flex-col items-center gap-4 text-[10px] uppercase tracking-[0.3em] text-white/20 font-bold">
-            <p>&copy; 2024 LWS DATABASE &bull; ALL RIGHTS RESERVED</p>
+          <div className="mt-12 pt-8 border-t border-white/5 w-full flex flex-col items-center gap-5 text-[10px] uppercase tracking-[0.3em] font-bold">
+            <p className="text-white/20">&copy; 2024 LWS DATABASE &bull; ALL RIGHTS RESERVED</p>
             <a 
               href="https://whatsapp.com/channel/0029Vb688BZ6GcGO9OwJc621" 
               target="_blank" 
               rel="noopener noreferrer"
-              className="hover:text-purple-500 transition-colors normal-case tracking-normal font-medium text-white/40"
+              className="px-6 py-2 bg-white/5 border border-white/10 rounded-full text-white/80 hover:text-white hover:bg-white/10 transition-all hover:scale-105 normal-case tracking-normal font-bold"
             >
-              This Tool is developed by Learn With Sami | LWS
+              This Tool is developed by <span className="text-purple-500">Learn With Sami | LWS</span>
             </a>
           </div>
         </div>
@@ -803,6 +803,12 @@ function RecordCard({ data, index }: RecordCardProps) {
   const getRiskLevel = (phoneStr: string) => {
     if (!phoneStr) return { level: 'Unknown', color: 'text-white/40', icon: ShieldCheck };
     const cleanNum = phoneStr.replace(/\D/g, '');
+    
+    // Check if number is in scammer list
+    if (appConfig.scammers?.includes(cleanNum)) {
+      return { level: '⚠️ CONFIRMED SCAMMER', color: 'text-red-500 font-black animate-pulse', icon: ShieldAlert };
+    }
+
     const lastDigit = parseInt(cleanNum.slice(-1) || '0');
     if (lastDigit > 7) return { level: 'High Risk (Spam/Scam)', color: 'text-red-500', icon: ShieldAlert };
     if (lastDigit > 4) return { level: 'Medium Risk (Suspicious)', color: 'text-yellow-500', icon: AlertCircle };
@@ -882,7 +888,7 @@ function RecordCard({ data, index }: RecordCardProps) {
   };
 
     const shareOnWhatsApp = () => {
-      const text = `*${useAppStore().appConfig.toolName} - Record Analysis*\n\n` +
+      const text = `*${appConfig.toolName} - Record Analysis*\n\n` +
         `👤 *Name:* ${data.name || data.full_name}\n` +
         `📱 *Mobile:* ${data.phone || data.mobile}\n` +
         `🆔 *CNIC:* ${data.cnic || data.nic}\n` +
@@ -906,9 +912,9 @@ function RecordCard({ data, index }: RecordCardProps) {
         style={{ backgroundColor: useAppStore().appConfig.primaryColor || "#9333ea" }}
       >
         <h3 className="text-lg font-bold uppercase tracking-widest text-white">Record {index}</h3>
-        <div className={`flex items-center gap-1.5 px-3 py-1 bg-black/40 rounded-full border border-white/10`}>
-          <RiskIcon className={`w-3 h-3 ${risk.color}`} />
-          <span className={`text-[10px] font-bold tracking-wider uppercase ${risk.color}`}>{risk.level}</span>
+        <div className={`flex items-center gap-1.5 px-3 py-1 bg-black/60 rounded-full border border-white/20 shadow-lg`}>
+          <RiskIcon className={`w-3.5 h-3.5 ${risk.color}`} />
+          <span className={`text-[10px] font-black tracking-wider uppercase ${risk.color}`}>{risk.level}</span>
         </div>
       </div>
 
