@@ -42,7 +42,7 @@ let globalUser: UserProfile | null = JSON.parse(localStorage.getItem('sim_user')
 
 // App Configuration (Branding & UI)
 let globalAppConfig = JSON.parse(localStorage.getItem('sim_app_config') || JSON.stringify({
-  toolName: "LWS DATABASE",
+  toolName: "LWS Sim Database",
   channelLink: "https://www.whatsapp.com/channel/0029Vb688BZ6GcGO9OwJc621",
   primaryColor: "#9333ea", // Purple 600
   secondaryColor: "#3b82f6", // Blue 500
