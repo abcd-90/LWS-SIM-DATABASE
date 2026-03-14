@@ -730,6 +730,10 @@ export default function App() {
           <FileSpreadsheet className="w-5 h-5" />
           <span className="text-[9px] font-bold uppercase tracking-widest">Bulk</span>
         </button>
+        <a href={WHATSAPP_CHANNEL} target="_blank" rel="noopener noreferrer" className="flex flex-col items-center gap-1 text-emerald-500/60 hover:text-emerald-500 transition-colors">
+          <MessageCircle className="w-5 h-5" />
+          <span className="text-[9px] font-bold uppercase tracking-widest">Support</span>
+        </a>
       </div>
 
       <div className="pb-24 md:pb-0" /> {/* Spacer for bottom nav */}

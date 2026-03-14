@@ -203,13 +203,13 @@ export default function AdminPanel({ onClose }: { onClose: () => void }) {
             </div>
           </div>
           
-          <div className="flex-1 flex overflow-x-auto no-scrollbar scroll-smooth">
+          <div className="flex-1 overflow-x-auto no-scrollbar scroll-smooth">
             <div className="flex min-w-max">
-              <NavBtn active={activeTab === 'stats'} onClick={() => setActiveTab('stats')} icon={Activity} label="Dashboard" />
-              <NavBtn active={activeTab === 'logs'} onClick={() => setActiveTab('logs')} icon={Eye} label="User Activity" />
-              <NavBtn active={activeTab === 'branding'} onClick={() => setActiveTab('branding')} icon={Palette} label="Tool Customizer" />
-              <NavBtn active={activeTab === 'vips'} onClick={() => setActiveTab('vips')} icon={Users} label="VIP Manager" />
-              <NavBtn active={activeTab === 'security'} onClick={() => setActiveTab('security')} icon={ShieldCheck} label="Access Control" />
+              <NavBtn active={activeTab === 'stats'} onClick={() => setActiveTab('stats')} icon={Activity} label="Stats" />
+              <NavBtn active={activeTab === 'logs'} onClick={() => setActiveTab('logs')} icon={Eye} label="Logs" />
+              <NavBtn active={activeTab === 'branding'} onClick={() => setActiveTab('branding')} icon={Palette} label="Style" />
+              <NavBtn active={activeTab === 'vips'} onClick={() => setActiveTab('vips')} icon={Users} label="VIP" />
+              <NavBtn active={activeTab === 'security'} onClick={() => setActiveTab('security')} icon={ShieldCheck} label="Access" />
             </div>
           </div>
 
