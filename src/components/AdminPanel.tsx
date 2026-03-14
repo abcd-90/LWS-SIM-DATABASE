@@ -57,6 +57,7 @@ export default function AdminPanel({ onClose }: { onClose: () => void }) {
   const [newAdminPass, setNewAdminPass] = useState('');
   const [newIp, setNewIp] = useState('');
   const [scammerNum, setScammerNum] = useState('');
+  const [scammerNote, setScammerNote] = useState('');
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
@@ -586,29 +587,36 @@ export default function AdminPanel({ onClose }: { onClose: () => void }) {
                   <h4 className="text-xs font-bold uppercase tracking-widest mb-4 flex items-center gap-2 text-red-400">
                     <Ban className="w-4 h-4" /> Add Record
                   </h4>
-                  <div className="space-y-4">
-                    <input 
-                      type="text" 
-                      placeholder="Scammer Phone Number" 
-                      className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-sm outline-none focus:border-red-500"
-                      value={scammerNum}
-                      onChange={(e) => setScammerNum(e.target.value)}
-                    />
-                    <button 
-                      onClick={() => {
-                        if (!scammerNum) return;
-                        const clean = scammerNum.replace(/\D/g, '');
-                        const current = appConfig.scammers || [];
-                        if (current.includes(clean)) return toast.error('Already flagged');
-                        updateAppConfig({ scammers: [...current, clean] });
-                        setScammerNum('');
-                        toast.success('Number flagged as Scammer');
-                      }}
-                      className="w-full bg-red-600 hover:bg-red-500 py-3 rounded-xl font-bold text-xs shadow-lg shadow-red-500/20"
-                    >
-                      Ban Globally
-                    </button>
-                  </div>
+                    <div className="space-y-4">
+                      <input 
+                        type="text" 
+                        placeholder="Phone Number (e.g. 0321...)" 
+                        className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-red-500 outline-none"
+                        value={scammerNum}
+                        onChange={(e) => setScammerNum(e.target.value)}
+                      />
+                      <textarea 
+                        placeholder="Why is this number banned? (e.g. Fake Payment, Abuse)" 
+                        className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-red-500 outline-none min-h-[80px]"
+                        value={scammerNote}
+                        onChange={(e) => setScammerNote(e.target.value)}
+                      />
+                      <button 
+                        onClick={() => {
+                          if (!scammerNum || !scammerNote) return toast.error('Number & Note required');
+                          const clean = scammerNum.replace(/\D/g, '');
+                          const current = appConfig.scammers || [];
+                          if (current.find((s: any) => s.phone === clean)) return toast.error('Already flagged');
+                          updateAppConfig({ scammers: [...current, { phone: clean, note: scammerNote }] });
+                          setScammerNum('');
+                          setScammerNote('');
+                          toast.success('Number flagged as Scammer');
+                        }}
+                        className="w-full bg-red-600 hover:bg-red-500 py-3 rounded-xl font-bold text-xs shadow-lg shadow-red-500/20"
+                      >
+                        Ban Globally
+                      </button>
+                    </div>
                 </div>
 
                 <div className="bg-white/5 border border-white/10 p-6 rounded-3xl h-[400px] flex flex-col">
@@ -616,22 +624,25 @@ export default function AdminPanel({ onClose }: { onClose: () => void }) {
                     <ShieldAlert className="w-4 h-4" /> Blacklisted Numbers ({appConfig.scammers?.length || 0})
                   </h4>
                   <div className="flex-grow overflow-y-auto no-scrollbar space-y-2">
-                    {appConfig.scammers?.map((num: string) => (
-                      <div key={num} className="bg-black/40 border border-white/5 p-4 rounded-xl flex items-center justify-between group">
-                        <div className="flex items-center gap-3">
-                           <div className="w-8 h-8 bg-red-500/10 rounded-lg flex items-center justify-center text-red-500">
+                    {appConfig.scammers?.map((s: any) => (
+                      <div key={s.phone} className="bg-black/40 border border-white/5 p-4 rounded-xl flex items-center justify-between group">
+                        <div className="flex items-center gap-3 overflow-hidden">
+                           <div className="w-8 h-8 bg-red-500/10 rounded-lg flex items-center justify-center text-red-500 shrink-0">
                               <AlertTriangle className="w-4 h-4" />
                            </div>
-                           <code className="text-sm font-black text-red-400">{num}</code>
+                           <div className="overflow-hidden">
+                              <code className="text-sm font-black text-red-400 block">{s.phone}</code>
+                              <p className="text-[10px] text-white/40 truncate italic">"{s.note}"</p>
+                           </div>
                         </div>
                         <button 
                           onClick={() => {
                             updateAppConfig({ 
-                              scammers: appConfig.scammers.filter((n: string) => n !== num) 
+                              scammers: appConfig.scammers.filter((n: any) => n.phone !== s.phone) 
                             });
                             toast.success('Removed from database');
                           }}
-                          className="p-2 bg-red-500/10 hover:bg-red-500 text-red-500 hover:text-white rounded-lg transition-all opacity-0 group-hover:opacity-100"
+                          className="p-2 bg-red-500/10 hover:bg-red-500 text-red-500 hover:text-white rounded-lg transition-all opacity-0 group-hover:opacity-100 shrink-0"
                         >
                           <Trash2 className="w-4 h-4" />
                         </button>

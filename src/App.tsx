@@ -613,35 +613,8 @@ export default function App() {
                      </div>
                   </div>
 
-                  {/* Advanced Area Analysis (Street View Mockup) */}
-                  <div className="space-y-4">
-                     <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-white/20 flex items-center gap-2">
-                        <Compass className="w-3 h-3 text-emerald-500" /> Advanced Area Analysis
-                     </h4>
-                     <div className="bg-white/5 border border-white/10 rounded-2xl p-6 space-y-6">
-                        <div className="flex items-center gap-4">
-                           <div className="w-12 h-12 bg-white/5 rounded-xl flex items-center justify-center border border-white/10">
-                              <Landmark className="w-6 h-6 text-emerald-500" />
-                           </div>
-                           <div>
-                              <p className="text-xs font-bold text-white/80">Nearby Landmarks</p>
-                              <p className="text-[10px] text-white/40">Likely social clusters and key nodes</p>
-                           </div>
-                        </div>
-
-                        <div className="divide-y divide-white/5">
-                           <AreaPoint icon={Navigation} label="Primary Network Node" value="LWS High-Risk Zone" />
-                           <AreaPoint icon={MapPin} label="Postal Density" value="High Coverage" />
-                           <AreaPoint icon={Landmark} label="Public Infrastructure" value="3 Identified Nodes" />
-                        </div>
-
-                        <div 
-                           className="p-3 bg-emerald-500/5 border border-emerald-500/20 rounded-xl text-[10px] text-emerald-400 font-medium italic flex items-center gap-2"
-                        >
-                           <ShieldCheck className="w-3 h-3" /> Area scan indicates verified residential activity patterns.
-                        </div>
-                     </div>
-                  </div>
+                  {/* Space for better layout after removing Area Analysis */}
+                  <div className="md:h-20" />
                </div>
             </div>
           </motion.form>
@@ -767,15 +740,20 @@ export default function App() {
 
           <div className="mt-12 pt-8 border-t border-white/5 w-full flex flex-col items-center gap-5 text-[10px] uppercase tracking-[0.3em] font-bold">
             <p className="text-white/20">&copy; 2024 LWS DATABASE &bull; ALL RIGHTS RESERVED</p>
-            <a 
-              href="https://whatsapp.com/channel/0029Vb688BZ6GcGO9OwJc621" 
-              target="_blank" 
-              rel="noopener noreferrer"
-              className="px-6 py-2 bg-white/5 border border-white/10 rounded-full text-white/80 hover:text-white hover:bg-white/10 transition-all hover:scale-105 normal-case tracking-normal font-bold"
-            >
-              This Tool is developed by <span className="text-purple-500">Learn With Sami | LWS</span>
-            </a>
+            <div className="flex flex-col items-center gap-2">
+              <span className="text-white/20 normal-case tracking-normal">This Tool is developed by</span>
+              <a 
+                href="https://whatsapp.com/channel/0029Vb688BZ6GcGO9OwJc621" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="px-6 py-2 bg-purple-600/10 border border-purple-500/20 rounded-full text-purple-400 hover:text-white hover:bg-purple-600 transition-all hover:scale-105 normal-case tracking-normal font-black"
+              >
+                Learn With Sami | LWS
+              </a>
+            </div>
           </div>
+          {/* Extra spacer for mobile footer visibility above the bottom nav */}
+          <div className="h-20 md:hidden" />
         </div>
       </footer>
 
@@ -805,8 +783,14 @@ function RecordCard({ data, index }: RecordCardProps) {
     const cleanNum = phoneStr.replace(/\D/g, '');
     
     // Check if number is in scammer list
-    if (appConfig.scammers?.includes(cleanNum)) {
-      return { level: '⚠️ CONFIRMED SCAMMER', color: 'text-red-500 font-black animate-pulse', icon: ShieldAlert };
+    const scammerMatch = appConfig.scammers?.find((s: any) => s.phone === cleanNum);
+    if (scammerMatch) {
+      return { 
+        level: '⚠️ CONFIRMED SCAMMER', 
+        color: 'text-red-500 font-black animate-pulse', 
+        icon: ShieldAlert,
+        note: scammerMatch.note || 'Manually flagged as malicious entity'
+      };
     }
 
     const lastDigit = parseInt(cleanNum.slice(-1) || '0');
@@ -924,6 +908,12 @@ function RecordCard({ data, index }: RecordCardProps) {
           <DataRow label="CNIC" value={cnic} />
           <DataRow label="MOBILE" value={mobile} />
           <DataRow label="ADDRESS" value={rawAddress} />
+          {risk.note && (
+            <div className="px-6 py-4 bg-red-500/10 border-t border-white/5 animate-in slide-in-from-left-2 duration-300">
+              <p className="text-[10px] font-black uppercase tracking-widest text-red-500 mb-1">Scammer Report Note:</p>
+              <p className="text-xs font-bold text-white/90 italic">"{risk.note}"</p>
+            </div>
+          )}
         </div>
 
       <div className="p-4 bg-black/60">

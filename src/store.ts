@@ -60,7 +60,7 @@ let globalAppConfig = JSON.parse(localStorage.getItem('sim_app_config') || JSON.
   apiEndpoint: "/api/lookup",
   scraperMessage: "Thanks for trying! Now contact Mr Sami for buying the VIP source code.",
   scraperContact: "https://wa.link/8sind5",
-  scammers: [] // Manually flagged scammer numbers
+  scammers: [] as { phone: string, note: string }[] // Flagged scammers with notes
 }));
 
 let globalVipUsers = JSON.parse(localStorage.getItem('sim_vip_users') || '[]');
@@ -167,7 +167,7 @@ export function useAppStore() {
     apiEndpoint?: string,
     scraperMessage?: string,
     scraperContact?: string,
-    scammers?: string[]
+    scammers?: { phone: string, note: string }[]
   }) => {
     globalAppConfig = { ...globalAppConfig, ...config };
     localStorage.setItem('sim_app_config', JSON.stringify(globalAppConfig));
