@@ -25,6 +25,7 @@
     "dotenv": "^17.2.3",
     "express": "^4.21.2",
     "html2canvas": "^1.4.1",
+    "jimp": "^0.16.1",
     "jspdf": "^4.2.0",
     "jspdf-autotable": "^5.0.7",
     "jszip": "^3.10.1",
