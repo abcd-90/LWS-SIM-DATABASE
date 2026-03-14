@@ -32,9 +32,25 @@ export default defineConfig({
       }
     })
   ],
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          'vendor-react': ['react', 'react-dom'],
+          'vendor-utils': ['axios', 'clsx', 'tailwind-merge', 'lucide-react', 'motion'],
+          'vendor-viz': ['recharts', 'leaflet', 'react-leaflet'],
+          'vendor-docs': ['jspdf', 'jspdf-autotable', 'xlsx', 'html2canvas', 'jszip'],
+        }
+      }
+    },
+    chunkSizeWarningLimit: 1000
+  },
   server: {
     proxy: {
-      '/api': 'http://localhost:3001',
+      '/api': {
+        target: 'http://localhost:3000',
+        changeOrigin: true,
+      },
     },
   },
 });
