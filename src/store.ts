@@ -76,7 +76,7 @@ let globalVipUsers = JSON.parse(localStorage.getItem('sim_vip_users') || '[]');
 
 let globalAdminSettings = JSON.parse(localStorage.getItem('sim_admin_settings') || JSON.stringify({
   username: "admin",
-  password: "admin123"
+  password: "lws-admins-786"
 }));
 
 let globalIsAdminAuth = false; // Session-based admin login
