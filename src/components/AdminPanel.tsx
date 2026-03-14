@@ -383,6 +383,10 @@ export default function AdminPanel({ onClose }: { onClose: () => void }) {
                         <label className="text-[10px] font-bold text-white/40 uppercase px-1">Logo URL</label>
                         <input type="text" value={logoUrl} onChange={(e) => setLogoUrl(e.target.value)} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-purple-500/50 outline-none" placeholder="https://..." />
                       </div>
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-bold text-white/40 uppercase px-1">Breaking News / Announcement</label>
+                        <textarea value={announcement} onChange={(e) => setAnnouncement(e.target.value)} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-purple-500/50 outline-none min-h-[60px]" placeholder="Welcome to LWS Database..." />
+                      </div>
                    </div>
 
                    <div className="space-y-4 pt-4 border-t border-white/5">
