@@ -50,7 +50,7 @@ import { cn } from './lib/utils';
 // Fix Leaflet marker icon issue
 // @ts-ignore
 if (typeof window !== 'undefined') {
-  delete L.Icon.Default.prototype._getIconUrl;
+  delete (L.Icon.Default.prototype as any)._getIconUrl;
   L.Icon.Default.mergeOptions({
     iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
     iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
@@ -244,7 +244,7 @@ export default function App() {
   };
 
   const downloadReport = async () => {
-    await generateInvestigationReport(results, appConfig, getOperator);
+    await generateInvestigationReport(results, appConfig, getOperator, phoneNumber);
   };
 
   const selectHistoryItem = (query: string) => {

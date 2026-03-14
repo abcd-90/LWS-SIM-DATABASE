@@ -2,7 +2,7 @@ import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import toast from 'react-hot-toast';
 
-export const generateInvestigationReport = async (results, appConfig, getOperator) => {
+export const generateInvestigationReport = async (results, appConfig, getOperator, phoneNumber) => {
   if (!results || results.length === 0) return;
   const config = appConfig.pdfSettings || { agencyName: "LWS CYBER DEFENSE UNIT", watermark: true, showQr: true };
 
