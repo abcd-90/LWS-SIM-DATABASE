@@ -88,3 +88,32 @@ export async function normalizeAddress(rawAddress: string): Promise<string[]> {
     return [trimmedAddress + ", Pakistan"];
   }
 }
+
+export async function generateSearchSummary(data: any[]): Promise<string> {
+  if (!data || data.length === 0) return "";
+  
+  try {
+    const response = await ai.models.generateContent({
+      model: "gemini-2.0-flash",
+      contents: [{
+        parts: [{
+          text: `You are an intelligence data analyst. Given the following search results for a CNIC or phone number in Pakistan, provide a concise 1-2 sentence VIP summary for the user.
+          
+          Data: ${JSON.stringify(data)}
+          
+          Focus on:
+          - Subject's name (if consistent).
+          - Most frequent city/area.
+          - Total numbers found.
+          
+          Format: Aik professional aur seedha summary likhein. No extra fluff. No bullet points.`
+        }]
+      }]
+    });
+
+    return response.text?.trim() || "";
+  } catch (err) {
+    console.error("Summary generation error:", err);
+    return `Analysis found ${data.length} records registered with this identity. Subject appears active in ${data[0].city || data[0].address || 'multiple regions'}.`;
+  }
+}

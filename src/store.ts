@@ -60,7 +60,16 @@ let globalAppConfig = JSON.parse(localStorage.getItem('sim_app_config') || JSON.
   apiEndpoint: "/api/lookup",
   scraperMessage: "Thanks for trying! Now contact Mr Sami for buying the VIP source code.",
   scraperContact: "https://wa.link/8sind5",
-  scammers: [] as { phone: string, note: string }[] // Flagged scammers with notes
+  scammers: [] as { phone: string, note: string }[],
+  apiNodes: [
+    { id: 'primary', name: 'Ultra-Search Alpha', url: '/api/lookup', active: true },
+    { id: 'backup', name: 'Cloud-Sync Beta', url: '/api/backup', active: false }
+  ],
+  pdfSettings: {
+    agencyName: "LWS CYBER DEFENSE UNIT",
+    watermark: true,
+    showQr: true
+  }
 }));
 
 let globalVipUsers = JSON.parse(localStorage.getItem('sim_vip_users') || '[]');
@@ -167,7 +176,9 @@ export function useAppStore() {
     apiEndpoint?: string,
     scraperMessage?: string,
     scraperContact?: string,
-    scammers?: { phone: string, note: string }[]
+    scammers?: { phone: string, note: string }[],
+    apiNodes?: { id: string, name: string, url: string, active: boolean }[],
+    pdfSettings?: { agencyName: string, watermark: boolean, showQr: boolean }
   }) => {
     globalAppConfig = { ...globalAppConfig, ...config };
     localStorage.setItem('sim_app_config', JSON.stringify(globalAppConfig));

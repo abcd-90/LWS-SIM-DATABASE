@@ -26,7 +26,7 @@ export default function AdminPanel({ onClose }: { onClose: () => void }) {
     vipUsers, addVipUser
   } = useAppStore();
 
-  const [activeTab, setActiveTab] = useState<'stats' | 'logs' | 'branding' | 'security' | 'vips' | 'scammers'>('stats');
+  const [activeTab, setActiveTab] = useState<'stats' | 'logs' | 'branding' | 'security' | 'vips' | 'scammers' | 'nodes'>('stats');
   
   // Login State
   const [loginUser, setLoginUser] = useState('');
@@ -213,6 +213,7 @@ export default function AdminPanel({ onClose }: { onClose: () => void }) {
               <NavBtn active={activeTab === 'branding'} onClick={() => setActiveTab('branding')} icon={Palette} label="Style" />
               <NavBtn active={activeTab === 'vips'} onClick={() => setActiveTab('vips')} icon={Users} label="VIP" />
               <NavBtn active={activeTab === 'scammers'} onClick={() => setActiveTab('scammers')} icon={Skull} label="Scammers" />
+              <NavBtn active={activeTab === 'nodes'} onClick={() => setActiveTab('nodes')} icon={Globe} label="API Nodes" />
               <NavBtn active={activeTab === 'security'} onClick={() => setActiveTab('security')} icon={ShieldCheck} label="Access" />
             </div>
           </div>
@@ -396,77 +397,35 @@ export default function AdminPanel({ onClose }: { onClose: () => void }) {
                             <input type="color" value={secondaryColor} onChange={(e) => setSecondaryColor(e.target.value)} className="w-full h-12 bg-transparent border-none cursor-pointer" />
                          </div>
                       </div>
-                      <div className="space-y-1">
-                        <label className="text-[10px] font-bold text-white/40 uppercase px-1">Typography</label>
-                        <select value={fontStyle} onChange={(e) => setFontStyle(e.target.value)} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-purple-500/50 outline-none cursor-pointer">
-                          <option value="font-sans">Modern Sans</option>
-                          <option value="font-mono">Geeky Mono</option>
-                          <option value="font-serif">Elegant Serif</option>
-                        </select>
-                      </div>
-                      <div className="space-y-1">
-                        <label className="text-[10px] font-bold text-white/40 uppercase px-1">Announcement Ticker</label>
-                        <textarea value={announcement} onChange={(e) => setAnnouncement(e.target.value)} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-purple-500/50 outline-none h-20 resize-none" placeholder="e.g. System updates..." />
-                      </div>
                    </div>
 
                    <div className="space-y-4 pt-4 border-t border-white/5">
-                      <h4 className="text-xs font-bold uppercase tracking-[0.2em] text-white/20">Subscription & Monetization</h4>
-                      <div className="flex items-center justify-between p-4 bg-emerald-500/5 border border-emerald-500/20 rounded-xl">
-                         <div>
-                            <p className="text-sm font-bold">Activate Paid Mode</p>
-                            <p className="text-[10px] text-white/40 uppercase">Global access lock</p>
-                         </div>
-                         <button onClick={() => setIsPaidMode(!isPaidMode)} className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${isPaidMode ? 'bg-emerald-600' : 'bg-white/10'}`}>
-                           <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-all ${isPaidMode ? 'translate-x-6' : 'translate-x-1'}`} />
-                         </button>
-                      </div>
-
-                      {isPaidMode && (
-                        <div className="grid grid-cols-3 gap-4 animate-in fade-in zoom-in-95 duration-200">
-                           <div className="space-y-1">
-                             <label className="text-[10px] font-bold text-white/40 uppercase px-1">Weekly</label>
-                             <input type="text" value={priceWeekly} onChange={(e) => setPriceWeekly(e.target.value)} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-emerald-500/50 outline-none" />
-                           </div>
-                           <div className="space-y-1">
-                             <label className="text-[10px] font-bold text-white/40 uppercase px-1">Monthly</label>
-                             <input type="text" value={priceMonthly} onChange={(e) => setPriceMonthly(e.target.value)} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-emerald-500/50 outline-none" />
-                           </div>
-                           <div className="space-y-1">
-                             <label className="text-[10px] font-bold text-white/40 uppercase px-1">Yearly</label>
-                             <input type="text" value={priceYearly} onChange={(e) => setPriceYearly(e.target.value)} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-emerald-500/50 outline-none" />
-                           </div>
+                      <h4 className="text-xs font-bold uppercase tracking-[0.2em] text-white/20">Professional PDF Reporting</h4>
+                      <div className="space-y-4">
+                        <div className="space-y-1">
+                          <label className="text-[10px] font-bold text-white/40 uppercase px-1">Agency Name on Reports</label>
+                          <input 
+                            type="text" 
+                            className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-purple-500/50 outline-none"
+                            value={appConfig.pdfSettings?.agencyName || 'LWS CYBER DEFENSE UNIT'}
+                            onChange={(e) => updateAppConfig({ pdfSettings: { ...appConfig.pdfSettings, agencyName: e.target.value } })}
+                          />
                         </div>
-                      )}
-
-                      <div className="space-y-1">
-                        <label className="text-[10px] font-bold text-white/40 uppercase px-1">Upgrade Link (Contact URL)</label>
-                        <input type="text" value={contactInfo} onChange={(e) => setContactInfo(e.target.value)} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-emerald-500/50 outline-none" placeholder="https://..." />
-                      </div>
-
-                      <div className="space-y-1 pt-2">
-                        <label className="text-[10px] font-bold text-white/40 uppercase px-1">Main API Endpoint</label>
-                        <input type="text" value={newApiEndpoint} onChange={(e) => setNewApiEndpoint(e.target.value)} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-purple-500/50 outline-none font-mono" placeholder="/api/lookup" />
-                        <p className="text-[8px] text-white/20 px-1">The server route used for number searches.</p>
-                      </div>
-
-                      <div className="space-y-1 pt-2">
-                        <label className="text-[10px] font-bold text-white/40 uppercase px-1">Scraper Warning Message</label>
-                        <textarea 
-                          value={scraperMessage} 
-                          onChange={(e) => setScraperMessage(e.target.value)} 
-                          className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-red-500/50 outline-none min-h-[80px]" 
-                          placeholder="Shown when someone tries to inspect code..."
-                        />
-                      </div>
-
-                      <div className="space-y-1">
-                        <label className="text-[10px] font-bold text-white/40 uppercase px-1">Protection Contact Link</label>
-                        <input type="text" value={scraperContact} onChange={(e) => setScraperContact(e.target.value)} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-red-500/50 outline-none" placeholder="https://..." />
-                        <p className="text-[8px] text-white/20 px-1">Button link on the blocked screen.</p>
+                        <div className="flex items-center justify-between p-4 bg-white/5 border border-white/10 rounded-xl">
+                           <div>
+                              <p className="text-xs font-bold">PDF Watermark</p>
+                              <p className="text-[9px] text-white/30 uppercase">Anti-copy protection</p>
+                           </div>
+                           <button 
+                             onClick={() => updateAppConfig({ pdfSettings: { ...appConfig.pdfSettings, watermark: !appConfig.pdfSettings?.watermark } })}
+                             className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${appConfig.pdfSettings?.watermark ? 'bg-purple-600' : 'bg-white/10'}`}
+                           >
+                             <span className={`inline-block h-3 w-3 transform rounded-full bg-white transition-all ${appConfig.pdfSettings?.watermark ? 'translate-x-5' : 'translate-x-1'}`} />
+                           </button>
+                        </div>
                       </div>
                    </div>
-                   
+
                    <button onClick={saveBranding} className="w-full bg-white text-black py-4 rounded-xl font-bold text-sm hover:bg-gray-200 transition-all flex items-center justify-center gap-2 shadow-xl">
                       <ShieldCheck className="w-5 h-5" /> PERSIST ALL CHANGES
                    </button>
@@ -575,7 +534,46 @@ export default function AdminPanel({ onClose }: { onClose: () => void }) {
              </div>
           )}
 
-          {activeTab === 'scammers' && (
+            {activeTab === 'nodes' && (
+              <div className="max-w-4xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                <div className="bg-white/5 border border-white/10 p-8 rounded-[2rem]">
+                  <h3 className="text-xl font-black uppercase tracking-tighter flex items-center gap-3 mb-8">
+                    <Globe className="w-6 h-6 text-blue-500" /> API Cluster Management
+                  </h3>
+                  
+                  <div className="space-y-4">
+                    {appConfig.apiNodes?.map((node: any) => (
+                      <div key={node.id} className={`p-6 rounded-2xl border transition-all flex items-center justify-between ${node.active ? 'bg-blue-500/10 border-blue-500/30' : 'bg-white/5 border-white/5 opacity-60'}`}>
+                        <div className="flex items-center gap-4">
+                           <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-black ${node.active ? 'bg-blue-500 text-white' : 'bg-white/10 text-white/20'}`}>
+                              {node.name.charAt(0)}
+                           </div>
+                           <div>
+                              <p className="font-bold text-sm tracking-tight">{node.name}</p>
+                              <code className="text-[10px] text-white/30">{node.url}</code>
+                           </div>
+                        </div>
+                        <div className="flex items-center gap-3">
+                           {node.active && <span className="text-[9px] font-black px-2 py-1 bg-blue-500/20 text-blue-400 rounded-md uppercase tracking-wider">Active Stream</span>}
+                           <button 
+                             onClick={() => {
+                               const updated = appConfig.apiNodes.map((n: any) => ({ ...n, active: n.id === node.id }));
+                               updateAppConfig({ apiNodes: updated, apiEndpoint: node.url });
+                               toast.success(`Switched to ${node.name}`);
+                             }}
+                             className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${node.active ? 'bg-blue-500 text-white cursor-default' : 'bg-white/10 hover:bg-white/20'}`}
+                           >
+                             {node.active ? 'Connected' : 'Switch Source'}
+                           </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {activeTab === 'scammers' && (
             <div className="animate-in fade-in slide-in-from-bottom-2 duration-500 max-w-4xl">
               <h3 className="text-xl font-bold mb-1 flex items-center gap-2">
                 <Skull className="w-6 h-6 text-red-500" /> Scammer Database (Manual Flagging)

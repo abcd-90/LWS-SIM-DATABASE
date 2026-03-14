@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import axios from 'axios';
-import { normalizeAddress } from './services/gemini';
+import { normalizeAddress, generateSearchSummary } from './services/gemini';
 import { GoogleLogin, googleLogout } from '@react-oauth/google';
 import { jwtDecode } from 'jwt-decode';
 import { 
@@ -80,6 +80,17 @@ function ChangeView({ center }: { center: [number, number] }) {
   map.setView(center, 13);
   return null;
 }
+
+const getOperator = (phone: string) => {
+  const clean = phone.replace(/\D/g, '');
+  const prefix = clean.startsWith('92') ? '0' + clean.slice(2, 5) : clean.substring(0, 4);
+  
+  if (prefix.startsWith('030') || prefix.startsWith('032')) return { name: 'JAZZ', color: 'text-amber-500', bg: 'bg-amber-500/10' };
+  if (prefix.startsWith('034')) return { name: 'TELENOR', color: 'text-sky-500', bg: 'bg-sky-500/10' };
+  if (prefix.startsWith('031')) return { name: 'ZONG', color: 'text-emerald-500', bg: 'bg-emerald-500/10' };
+  if (prefix.startsWith('033')) return { name: 'UFONE', color: 'text-orange-500', bg: 'bg-orange-500/10' };
+  return { name: 'LWS NETWORK', color: 'text-purple-500', bg: 'bg-purple-500/10' };
+};
 
 function SecurityShield() {
   const [isThreatDetected, setIsThreatDetected] = useState(false);
@@ -172,6 +183,7 @@ export default function App() {
   const [loading, setLoading] = useState(false);
   const [results, setResults] = useState<SimData[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [summary, setSummary] = useState<string | null>(null);
 
   const [showHistory, setShowHistory] = useState(false);
   const [showFavs, setShowFavs] = useState(false);
@@ -217,6 +229,14 @@ export default function App() {
       if (data && data.success === true && Array.isArray(data.result) && data.result.length > 0) {
         setResults(data.result);
         addHistory(searchPhone, data.result);
+
+        // Generate AI Summary
+        try {
+          const brief = await generateSearchSummary(data.result);
+          setSummary(brief);
+        } catch (sErr) {
+          console.error("Summary failed");
+        }
       } else {
         setError('No record found for this number or CNIC.');
       }
@@ -230,114 +250,105 @@ export default function App() {
 
   const downloadPDF = async () => {
     if (!results || results.length === 0) return;
+    const config = appConfig.pdfSettings || { agencyName: "LWS CYBER DEFENSE UNIT", watermark: true, showQr: true };
 
-    toast.loading('Generating PDF...', { id: 'pdf-toast' });
+    toast.loading('Generating Investigation Report...', { id: 'pdf-toast' });
     try {
       const pdf = new jsPDF({ orientation: 'p', unit: 'mm', format: 'a4' });
       const pageWidth = pdf.internal.pageSize.getWidth();
-
-      // Brand Colors
-      const brandPurple: [number, number, number] = [147, 51, 234];
-      const lightPurple: [number, number, number] = [243, 232, 255];
+      const pageHeight = pdf.internal.pageSize.getHeight();
 
       results.forEach((res, index) => {
         if (index > 0) pdf.addPage();
         
-        // 1. Top Header Block
-        pdf.setFillColor(...brandPurple);
-        pdf.rect(0, 0, pageWidth, 40, 'F');
+        // Agency Header Block
+        pdf.setFillColor(15, 15, 15);
+        pdf.rect(0, 0, pageWidth, 45, 'F');
 
-        // Header Text
+        // Verification Badge
+        pdf.setDrawColor(147, 51, 234);
+        pdf.setLineWidth(1);
+        // @ts-ignore
+        pdf.ellipse(pageWidth - 25, 22, 12, 12, 'D');
+        pdf.setTextColor(147, 51, 234);
+        pdf.setFontSize(6);
+        pdf.text("VERIFIED", pageWidth - 25, 21, { align: "center" });
+        pdf.text("SECURE", pageWidth - 25, 24, { align: "center" });
+
+        // Agency Branding
         pdf.setTextColor(255, 255, 255);
-        pdf.setFontSize(24);
+        pdf.setFontSize(22);
         pdf.setFont('helvetica', 'bold');
-        pdf.text('LWS DATABASE', 15, 22);
+        pdf.text(config.agencyName, 15, 22);
 
-        pdf.setFontSize(10);
+        pdf.setFontSize(8);
         pdf.setFont('helvetica', 'normal');
-        pdf.text('PREMIUM SIM INFORMATION REPORT', 15, 30);
+        pdf.text('INTELLIGENCE & INVESTIGATION DIVISION • PAKISTAN CRIME REGISTRY', 15, 30);
+        pdf.text(`CASE FILE NO: ${Math.random().toString(36).substring(2, 10).toUpperCase()}`, 15, 35);
 
-        // 2. Subheader (Record Info)
-        let yPos = 52;
-        pdf.setTextColor(40, 40, 40);
+        // Watermark
+        if (config.watermark) {
+          pdf.saveGraphicsState();
+          pdf.setTextColor(240, 240, 240);
+          pdf.setFontSize(60);
+          pdf.setFont('helvetica', 'bold');
+          // @ts-ignore
+          pdf.setGState(new pdf.GState({ opacity: 0.05 }));
+          pdf.text("OFFICIAL REPORT", pageWidth / 2, pageHeight / 2, { align: "center", angle: 45 });
+          pdf.restoreGraphicsState();
+        }
+
+        let yPos = 60;
+        
+        // Subject Summary Header
+        pdf.setTextColor(147, 51, 234);
         pdf.setFontSize(12);
-        pdf.setFont('helvetica', 'normal');
-        pdf.text(`Record ${index + 1} of ${results.length}`, 15, yPos);
+        pdf.setFont('helvetica', 'bold');
+        pdf.text('SUBJECT IDENTIFICATION DATA', 15, yPos);
+        pdf.line(15, yPos + 2, 85, yPos + 2);
         
-        yPos += 7;
-        pdf.setFontSize(10);
-        const now = new Date();
-        const dateStr = `${now.getDate().toString().padStart(2, '0')}/${(now.getMonth() + 1).toString().padStart(2, '0')}/${now.getFullYear()}, ${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}:${now.getSeconds().toString().padStart(2, '0')}`;
-        pdf.text(`Generated: ${dateStr}`, 15, yPos);
-        
-        yPos += 12;
+        yPos += 15;
 
-        // 3. Table using autoTable
+        // Information Grid
         autoTable(pdf, {
           startY: yPos,
-          head: [['Field', 'Information']],
+          theme: 'striped',
+          head: [['Data Point', 'Verified Intelligence Value']],
           body: [
-            ['Full Name', res.name || res.full_name || 'N/A'],
-            ['CNIC Number', res.cnic || res.nic || 'N/A'],
-            ['Mobile Number', res.phone || res.mobile || 'N/A'],
-            ['Address', res.address || res.location || res.city || 'N/A']
+            ['FULL NAME', (res.name || res.full_name || 'N/A').toUpperCase()],
+            ['CNIC IDENTITY', res.cnic || res.nic || 'N/A'],
+            ['CONTACT NODE', res.phone || res.mobile || 'N/A'],
+            ['OPERATOR ID', getOperator(res.phone || res.mobile || "").name],
+            ['LAST KNOWN ADDRESS', (res.address || res.location || 'N/A').toUpperCase()]
           ],
-          theme: 'grid',
-          headStyles: {
-            fillColor: brandPurple,
-            textColor: 255,
-            fontStyle: 'bold',
-            fontSize: 10,
-            halign: 'left',
-            cellPadding: 6
-          },
-          bodyStyles: {
-            textColor: [120, 120, 120],
-            fontSize: 10,
-            halign: 'left',
-            cellPadding: 8
-          },
-          columnStyles: {
-            0: { fontStyle: 'bold', cellWidth: 50, textColor: [120, 120, 120] } // bold grey for field names
-          },
-          margin: { left: 15, right: 15 },
-          styles: { 
-            lineColor: [240, 240, 240],
-            lineWidth: 0.1
-          }
+          headStyles: { fillColor: [15, 15, 15], textColor: 255, fontSize: 10, cellPadding: 5 },
+          bodyStyles: { textColor: 50, fontSize: 10, cellPadding: 8 },
+          columnStyles: { 0: { fontStyle: 'bold', fillColor: [245, 245, 245], cellWidth: 50 } }
         });
 
-        // Get final Y from table
-        yPos = (pdf as any).lastAutoTable.finalY + 15;
+        // Verification Stamp (Bottom Left)
+        const finalY = (pdf as any).lastAutoTable.finalY + 30;
+        pdf.setDrawColor(200, 200, 200);
+        pdf.rect(15, finalY - 10, 50, 25);
+        pdf.setTextColor(150, 150, 150);
+        pdf.setFontSize(6);
+        pdf.text("CERTIFIED DIGITAL RECORD", 40, finalY, { align: "center" });
+        pdf.setFontSize(10);
+        pdf.setTextColor(50, 50, 50);
+        pdf.text("VALIDATED", 40, finalY + 8, { align: "center" });
 
-        // 4. Footer Box
-        pdf.setFillColor(...lightPurple);
-        // Draw the background box
-        pdf.rect(15, yPos, pageWidth - 30, 36, 'F');
-
-        yPos += 12;
-        pdf.setTextColor(...brandPurple);
-        pdf.setFontSize(12);
-        pdf.setFont('helvetica', 'bold');
-        pdf.text('OFFICIAL WHATSAPP CHANNEL', 20, yPos);
-
-        yPos += 8;
+        // Signature (Bottom Right)
         pdf.setTextColor(0, 0, 0);
         pdf.setFontSize(10);
-        pdf.setFont('helvetica', 'bold');
-        pdf.text('Join for latest updates, new features and database news:', 20, yPos);
-
-        yPos += 8;
-        pdf.setTextColor(0, 0, 255);
-        pdf.setFontSize(10);
-        pdf.text('https://whatsapp.com/channel/0029Vb688BZ6GcGO9OwJc621', 20, yPos);
+        pdf.text("OFFICER IN CHARGE", pageWidth - 65, finalY + 12);
+        pdf.line(pageWidth - 70, finalY + 8, pageWidth - 15, finalY + 8);
       });
 
-      pdf.save(`LWS_Report_${phoneNumber || 'export'}.pdf`);
-      toast.success('PDF Downloaded Successfully!', { id: 'pdf-toast' });
+      pdf.save(`LWS_Report_${phoneNumber}.pdf`);
+      toast.success('Investigation Report Generated', { id: 'pdf-toast' });
     } catch (err) {
-      console.error("PDF ERROR:", err);
-      toast.error('Failed to generate PDF', { id: 'pdf-toast' });
+      console.error(err);
+      toast.error('PDF Generation Failed', { id: 'pdf-toast' });
     }
   };
 
@@ -605,21 +616,21 @@ export default function App() {
                 style={{ backgroundColor: `${primaryColor}1a`, borderColor: `${primaryColor}33` }}
               >
                 <div className="flex items-center gap-3">
-                  <div className="p-2 rounded-lg" style={{ backgroundColor: `${primaryColor}33` }}>
+                  <div className="p-2 rounded-lg shrink-0" style={{ backgroundColor: `${primaryColor}33` }}>
                     <CheckCircle className="w-6 h-6" style={{ color: primaryColor }} />
                   </div>
                   <div>
-                    <h4 className="font-bold mb-1" style={{ color: primaryColor }}>AI Linker Database Analysis</h4>
-                    <p className="text-xs text-white/60">
-                      Found <strong className="text-white">{results.length} total numbers</strong> registered on this CNIC across all networks within Pakistan.
+                    <h4 className="font-bold mb-1" style={{ color: primaryColor }}>AI Intel Summary</h4>
+                    <p className="text-[11px] text-white/80 leading-relaxed max-w-2xl italic">
+                      "{summary || `Found ${results.length} total numbers. Generating deep analysis...`}"
                     </p>
                   </div>
                 </div>
                 <button 
                   onClick={downloadPDF}
-                  className="shrink-0 flex items-center gap-2 px-4 py-2 bg-white hover:bg-gray-200 text-black font-bold rounded-lg text-xs transition-colors"
+                  className="shrink-0 flex items-center gap-2 px-5 py-3 bg-white hover:bg-gray-200 text-black font-black rounded-xl text-[10px] uppercase tracking-widest transition-all shadow-xl active:scale-95"
                 >
-                  <Download className="w-4 h-4" /> Download PDF Report
+                  <Download className="w-4 h-4" /> Investigation Report
                 </button>
               </div>
 
@@ -740,6 +751,8 @@ function RecordCard({ data, index }: RecordCardProps) {
   const isFav = isFavorite(data);
   const isVip = isVipUser(user?.email);
   const isPaid = appConfig.isPaidMode && !isVip;
+
+  const operator = getOperator(data.phone || data.mobile || "");
   
   const getRiskLevel = (phoneStr: string) => {
     if (!phoneStr) return { level: 'Unknown', color: 'text-white/40', icon: ShieldCheck };
@@ -859,9 +872,15 @@ function RecordCard({ data, index }: RecordCardProps) {
         style={{ backgroundColor: useAppStore().appConfig.primaryColor || "#9333ea" }}
       >
         <h3 className="text-lg font-bold uppercase tracking-widest text-white">Record {index}</h3>
-        <div className={`flex items-center gap-1.5 px-3 py-1 bg-black/60 rounded-full border border-white/20 shadow-lg`}>
-          <RiskIcon className={`w-3.5 h-3.5 ${risk.color}`} />
-          <span className={`text-[10px] font-black tracking-wider uppercase ${risk.color}`}>{risk.level}</span>
+        <div className="flex items-center gap-2">
+            <div className={`px-2.5 py-1 rounded-md ${operator.bg} border border-white/5 flex items-center gap-1.5`}>
+               <div className={`w-1.5 h-1.5 rounded-full ${operator.color.replace('text-', 'bg-')} animate-pulse`} />
+               <span className={`text-[9px] font-black tracking-tighter uppercase ${operator.color}`}>{operator.name}</span>
+            </div>
+            <div className={`flex items-center gap-1.5 px-3 py-1 bg-black/60 rounded-full border border-white/20 shadow-lg`}>
+              <RiskIcon className={`w-3.5 h-3.5 ${risk.color}`} />
+              <span className={`text-[10px] font-black tracking-wider uppercase ${risk.color}`}>{risk.level}</span>
+            </div>
         </div>
       </div>
 
