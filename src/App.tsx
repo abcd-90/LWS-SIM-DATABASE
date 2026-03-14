@@ -24,7 +24,7 @@ import {
   Settings,
   ShieldAlert,
   CheckCircle,
-  Lock,
+  Lock, 
   LogOut,
   Trash2, 
   Navigation, 
@@ -38,7 +38,8 @@ import {
   Compass
 } from 'lucide-react';
 import toast, { Toaster } from 'react-hot-toast';
-import { generateInvestigationReport } from './utils/pdfGenerator';
+import { jsPDF } from 'jspdf';
+import autoTable from 'jspdf-autotable';
 import { useAppStore } from './store';
 import AdminPanel from './components/AdminPanel';
 import BulkSearch from './components/BulkSearch';
@@ -177,7 +178,6 @@ export default function App() {
     user, setUser, appConfig, isVipUser
   } = useAppStore();
   
-  const WHATSAPP_CHANNEL = appConfig.channelLink;
   const [phoneNumber, setPhoneNumber] = useState('');
   const [loading, setLoading] = useState(false);
   const [results, setResults] = useState<SimData[] | null>(null);
@@ -243,8 +243,111 @@ export default function App() {
     }
   };
 
-  const downloadReport = async () => {
-    await generateInvestigationReport(results, appConfig, getOperator, phoneNumber);
+  const downloadPDF = async () => {
+    if (!results || results.length === 0) return;
+    const config = appConfig.pdfSettings || { agencyName: "LWS CYBER DEFENSE UNIT", watermark: true, showQr: true };
+
+    toast.loading('Generating Investigation Report...', { id: 'pdf-toast' });
+    try {
+      const pdf = new jsPDF({ orientation: 'p', unit: 'mm', format: 'a4' });
+      const pageWidth = pdf.internal.pageSize.getWidth();
+      const pageHeight = pdf.internal.pageSize.getHeight();
+
+      results.forEach((res, index) => {
+        if (index > 0) pdf.addPage();
+        
+        // Agency Header Block
+        pdf.setFillColor(15, 15, 15);
+        pdf.rect(0, 0, pageWidth, 45, 'F');
+
+        // Verification Badge
+        pdf.setDrawColor(147, 51, 234);
+        pdf.setLineWidth(1);
+        // @ts-ignore
+        pdf.circle(pageWidth - 25, 22, 10, 'D');
+        pdf.setTextColor(147, 51, 234);
+        pdf.setFontSize(6);
+        pdf.text("VERIFIED", pageWidth - 25, 21, { align: "center" });
+        pdf.text("SECURE", pageWidth - 25, 24, { align: "center" });
+
+        // Agency Branding
+        pdf.setTextColor(255, 255, 255);
+        pdf.setFontSize(22);
+        pdf.setFont('helvetica', 'bold');
+        pdf.text(config.agencyName, 15, 22);
+
+        pdf.setFontSize(8);
+        pdf.setFont('helvetica', 'normal');
+        pdf.text('INTELLIGENCE & INVESTIGATION DIVISION • PAKISTAN CRIME REGISTRY', 15, 30);
+        pdf.text(`CASE FILE NO: ${Math.random().toString(36).substring(2, 10).toUpperCase()}`, 15, 35);
+
+        // Watermark
+        if (config.watermark) {
+          pdf.saveGraphicsState();
+          pdf.setTextColor(240, 240, 240);
+          pdf.setFontSize(60);
+          pdf.setFont('helvetica', 'bold');
+          // @ts-ignore
+          pdf.setGState(new pdf.GState({ opacity: 0.05 }));
+          pdf.text("OFFICIAL REPORT", pageWidth / 2, pageHeight / 2, { align: "center", angle: 45 });
+          pdf.restoreGraphicsState();
+        }
+
+        let yPos = 60;
+        
+        // Subject Summary Header
+        pdf.setTextColor(147, 51, 234);
+        pdf.setFontSize(12);
+        pdf.setFont('helvetica', 'bold');
+        pdf.text('SUBJECT IDENTIFICATION DATA', 15, yPos);
+        pdf.line(15, yPos + 2, 85, yPos + 2);
+        
+        yPos += 15;
+
+        // Information Grid
+        autoTable(pdf, {
+          startY: yPos,
+          theme: 'striped',
+          head: [['Data Point', 'Verified Intelligence Value']],
+          body: [
+            ['FULL NAME', (res.name || res.full_name || 'N/A').toUpperCase()],
+            ['CNIC IDENTITY', res.cnic || res.nic || 'N/A'],
+            ['CONTACT NODE', res.phone || res.mobile || 'N/A'],
+            ['OPERATOR ID', getOperator(res.phone || res.mobile || "").name],
+            ['LAST KNOWN ADDRESS', (res.address || res.location || 'N/A').toUpperCase()]
+          ],
+          headStyles: { fillColor: [15, 15, 15], textColor: 255, fontSize: 10, cellPadding: 5 },
+          bodyStyles: { textColor: 50, fontSize: 10, cellPadding: 8 },
+          columnStyles: { 0: { fontStyle: 'bold', fillColor: [245, 245, 245], cellWidth: 50 } }
+        });
+
+        // Verification Stamp (Bottom Left)
+        // @ts-ignore
+        const finalY = (pdf as any).lastAutoTable.finalY + 30;
+        pdf.setDrawColor(200, 200, 200);
+        pdf.rect(15, finalY - 10, 50, 25);
+        pdf.setTextColor(150, 150, 150);
+        pdf.setFontSize(6);
+        pdf.text("CERTIFIED DIGITAL RECORD", 40, finalY, { align: "center" });
+        pdf.setFontSize(10);
+        pdf.setTextColor(50, 50, 50);
+        pdf.text("VALIDATED", 40, finalY + 8, { align: "center" });
+
+        // Sami Signature
+        const signatureBase64 = "data:image/png;base64,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";
+        pdf.addImage(signatureBase64, 'PNG', pageWidth - 65, finalY - 5, 40, 15);
+        pdf.setTextColor(0, 0, 0);
+        pdf.setFontSize(10);
+        pdf.text("OFFICER IN CHARGE", pageWidth - 65, finalY + 12);
+        pdf.line(pageWidth - 70, finalY + 8, pageWidth - 15, finalY + 8);
+      });
+
+      pdf.save(`LWS_Report_${phoneNumber}.pdf`);
+      toast.success('Investigation Report Generated', { id: 'pdf-toast' });
+    } catch (err) {
+      console.error(err);
+      toast.error('PDF Generation Failed', { id: 'pdf-toast' });
+    }
   };
 
   const selectHistoryItem = (query: string) => {
@@ -345,10 +448,10 @@ export default function App() {
           </div>
           <div className="animate-marquee whitespace-nowrap pl-[140px] flex gap-12">
              <span className="text-[11px] font-bold text-white/80 tracking-[0.1em] uppercase">
-               {appConfig.announcement} &bull; {appConfig.announcement} &bull; {appConfig.announcement}
+                {appConfig.announcement} • {appConfig.announcement} • {appConfig.announcement}
              </span>
              <span className="text-[11px] font-bold text-white/80 tracking-[0.1em] uppercase">
-               {appConfig.announcement} &bull; {appConfig.announcement} &bull; {appConfig.announcement}
+                {appConfig.announcement} • {appConfig.announcement} • {appConfig.announcement}
              </span>
           </div>
         </div>
@@ -365,7 +468,7 @@ export default function App() {
             {appConfig.logoUrl ? (
               <img src={appConfig.logoUrl} alt="Logo" className="w-10 h-10 object-contain" />
             ) : (
-              <div className="w-10 h-10 rounded-xl flex items-center justify-center shadow-lg" style={{ backgroundColor: primaryColor }}>
+              <div className="w-10 h-10 rounded-xl flex items-center justify-center shadow-lg" style={{ backgroundColor: primaryColor, boxShadow: `0 0 20px ${primaryColor}4d` }}>
                 <ShieldCheck className="text-white w-6 h-6" />
               </div>
             )}
@@ -416,7 +519,7 @@ export default function App() {
                   value={phoneNumber}
                   onChange={(e) => setPhoneNumber(e.target.value)}
                 />
-                <button id="search-form-btn" type="submit" disabled={loading} className="text-white px-6 py-3 rounded-xl font-bold flex items-center gap-2" style={{ backgroundColor: primaryColor }}>
+                <button id="search-form-btn" type="submit" disabled={loading} className="text-white px-6 py-3 rounded-xl font-bold flex items-center gap-2" style={{ backgroundColor: primaryColor, boxShadow: `0 0 20px ${primaryColor}4d` }}>
                   {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Search className="w-5 h-5" />}
                 </button>
               </div>
@@ -431,7 +534,7 @@ export default function App() {
             <div className="space-y-6">
               <div className="mb-8 p-4 border rounded-xl flex flex-col sm:flex-row items-center justify-between gap-4" style={{ backgroundColor: `${primaryColor}1a`, borderColor: `${primaryColor}33` }}>
                 <p className="text-[11px] text-white/80 italic">"{summary || "Deep analysis generated."}"</p>
-                <button onClick={downloadReport} className="shrink-0 flex items-center gap-2 px-5 py-3 bg-white text-black font-black rounded-xl text-[10px] uppercase tracking-widest transition-all shadow-xl active:scale-95">
+                <button onClick={downloadPDF} className="shrink-0 flex items-center gap-2 px-5 py-3 bg-white text-black font-black rounded-xl text-[10px] uppercase tracking-widest transition-all shadow-xl active:scale-95">
                   <Download className="w-4 h-4" /> Investigation Report
                 </button>
               </div>
@@ -452,14 +555,14 @@ export default function App() {
       {showAdmin && <AdminPanel onClose={() => setShowAdmin(false)} />}
 
       <footer className="relative z-10 border-t border-white/5 py-12 mt-20 text-center">
-        <p className="text-white/20 text-[10px] uppercase tracking-[0.3em] font-bold mb-4">&copy; 2024 LWS DATABASE &bull; ALL RIGHTS RESERVED</p>
-        <a href={WHATSAPP_CHANNEL} target="_blank" rel="noopener noreferrer" className="px-6 py-2 bg-purple-600/10 border border-purple-500/20 rounded-full text-purple-400 font-bold hover:bg-purple-600 hover:text-white transition-all">Learn With Sami | LWS</a>
+        <p className="text-white/20 text-[10px] uppercase tracking-[0.3em] font-bold mb-4">&copy; 2024 LWS DATABASE • ALL RIGHTS RESERVED</p>
+        <a href={appConfig.channelLink} target="_blank" rel="noopener noreferrer" className="px-6 py-2 bg-purple-600/10 border border-purple-500/20 rounded-full text-purple-400 font-bold hover:bg-purple-600 hover:text-white transition-all">Learn With Sami | LWS</a>
       </footer>
     </div>
   );
 }
 
-function RecordCard({ data, index }: { data: SimData, index: number }) {
+function RecordCard({ data, index }: { data: SimData, index: number, key?: any }) {
   const { appConfig, favorites, toggleFavorite, user, isVipUser } = useAppStore();
   const [center, setCenter] = useState<[number, number]>([33.6844, 73.0479]); 
   const [geoStatus, setGeoStatus] = useState<'idle' | 'loading' | 'success' | 'failed'>('idle');
@@ -469,7 +572,9 @@ function RecordCard({ data, index }: { data: SimData, index: number }) {
   const rawAddress = data.address || data.location || 'N/A';
   const googleMapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(rawAddress)}`;
   const isFav = favorites.some(f => (f.mobile === data.mobile || f.phone === data.phone) && (f.cnic === data.cnic || f.nic === data.nic));
-  const isPaid = appConfig.paidSystem && !isVipUser(user?.email || '');
+  const isPaid = appConfig.isPaidMode && !isVipUser(user?.email || '');
+
+  const operator = getOperator(data.mobile || data.phone || "");
 
   useEffect(() => {
     if (rawAddress !== 'N/A' && !isPaid) {
@@ -521,7 +626,7 @@ function RecordCard({ data, index }: { data: SimData, index: number }) {
         <div className="grid grid-cols-1 gap-1 border border-white/5 rounded-2xl overflow-hidden bg-black/20">
            <DataRow label="IDENTITY" value={isPaid ? "XXXXXXXXXXXXX" : (data.cnic || data.nic || 'N/A')} />
            <DataRow label="CONTACT" value={data.mobile || data.phone || 'N/A'} />
-           <DataRow label="NETWORK" value={getOperator(data.mobile || data.phone || "").name} />
+           <DataRow label="NETWORK" value={operator.name} />
            <DataRow label="ADDRESS" value={isPaid ? "REDACTED FOR PREMIUM USERS" : rawAddress} />
         </div>
       </div>
