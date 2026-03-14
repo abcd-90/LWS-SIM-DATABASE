@@ -39,11 +39,12 @@ export default defineConfig({
           'vendor-react': ['react', 'react-dom'],
           'vendor-utils': ['axios', 'clsx', 'tailwind-merge', 'lucide-react', 'motion'],
           'vendor-viz': ['recharts', 'leaflet', 'react-leaflet'],
-          'vendor-docs': ['jspdf', 'jspdf-autotable', 'xlsx', 'html2canvas', 'jszip'],
+          'vendor-pdf': ['jspdf', 'jspdf-autotable', 'html2canvas'],
+          'vendor-excel': ['xlsx', 'jszip'],
         }
       }
     },
-    chunkSizeWarningLimit: 1000
+    chunkSizeWarningLimit: 2000
   },
   server: {
     proxy: {
