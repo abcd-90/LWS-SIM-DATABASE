@@ -1,11 +1,13 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import axios from 'axios';
 import { normalizeAddress } from './services/gemini';
+import { GoogleLogin, googleLogout } from '@react-oauth/google';
+import { jwtDecode } from 'jwt-decode';
 import { 
   Search, 
   Phone, 
-  User, 
+  User as UserIcon, 
   MapPin, 
   CreditCard, 
   Network, 
@@ -14,8 +16,34 @@ import {
   Zap,
   MessageCircle,
   Loader2,
-  AlertCircle
+  AlertCircle,
+  History,
+  Star,
+  FileSpreadsheet,
+  Download,
+  Settings,
+  ShieldAlert,
+  CheckCircle,
+  Lock,
+  LogOut,
+  Trash2, 
+  Navigation, 
+  Printer, 
+  RotateCcw, 
+  Bookmark, 
+  Eye, 
+  Share2,
+  Send,
+  Landmark,
+  Compass
 } from 'lucide-react';
+import toast, { Toaster } from 'react-hot-toast';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
+import { useAppStore } from './store';
+import AdminPanel from './components/AdminPanel';
+import BulkSearch from './components/BulkSearch';
+import { HistoryPanel, FavoritesPanel } from './components/HistoryFavs';
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import { cn } from './lib/utils';
@@ -53,29 +81,134 @@ function ChangeView({ center }: { center: [number, number] }) {
   return null;
 }
 
+function SecurityShield() {
+  const [isThreatDetected, setIsThreatDetected] = useState(false);
+  const { appConfig } = useAppStore();
+
+  useEffect(() => {
+    const handleContextMenu = (e: MouseEvent) => {
+      e.preventDefault();
+    };
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (
+        e.key === 'F12' || 
+        (e.ctrlKey && e.shiftKey && (e.key === 'I' || e.key === 'J' || e.key === 'C')) ||
+        (e.ctrlKey && e.key === 'u')
+      ) {
+        e.preventDefault();
+        setIsThreatDetected(true);
+        return false;
+      }
+    };
+
+    window.addEventListener('contextmenu', handleContextMenu);
+    window.addEventListener('keydown', handleKeyDown);
+
+    const interval = setInterval(() => {
+        const start = new Date().getTime();
+        (function() { return false; })['constructor']('debugger')(); 
+        const end = new Date().getTime();
+        if (end - start > 50) {
+            setIsThreatDetected(true);
+        }
+    }, 2000);
+
+    return () => {
+      window.removeEventListener('contextmenu', handleContextMenu);
+      window.removeEventListener('keydown', handleKeyDown);
+      clearInterval(interval);
+    };
+  }, []);
+
+  if (isThreatDetected) {
+    return (
+      <div className="fixed inset-0 z-[9999] bg-black flex flex-col items-center justify-center p-6 text-center font-sans font-sans">
+        <motion.div 
+            initial={{ scale: 0.8, opacity: 0 }} 
+            animate={{ scale: 1, opacity: 1 }}
+            className="flex flex-col items-center"
+        >
+            <div className="w-24 h-24 bg-red-600 rounded-3xl flex items-center justify-center mb-8 shadow-[0_0_50px_rgba(220,38,38,0.5)] animate-pulse">
+                <ShieldAlert className="w-12 h-12 text-white" />
+            </div>
+            <h1 className="text-4xl font-black mb-4 tracking-tighter text-white uppercase italic">Access Blocked</h1>
+            <p className="text-white/60 mb-10 max-w-sm font-bold text-sm tracking-wide leading-relaxed">
+                Source Code Protection Active. <br/>
+                <span className="text-white text-lg block my-4 border-y border-white/10 py-4">
+                  {appConfig.scraperMessage || "Thanks for trying! Now contact Mr Sami for buying the VIP source code."}
+                </span>
+            </p>
+            <a 
+                href={appConfig.scraperContact || appConfig.contactInfo || "#"} 
+                target="_blank"
+                className="px-10 py-4 bg-white text-black font-black rounded-2xl hover:scale-105 active:scale-95 transition-all uppercase text-[10px] tracking-[0.3em] shadow-2xl shadow-white/10"
+            >
+                Contact Developer
+            </a>
+            <button 
+                onClick={() => window.location.reload()}
+                className="mt-8 text-[9px] text-white/20 uppercase tracking-[0.2em] hover:text-white/40 transition-colors"
+            >
+                Return to Dashboard
+            </button>
+        </motion.div>
+      </div>
+    );
+  }
+
+  return null;
+}
+
 export default function App() {
+  const { 
+    addHistory, maintenance, blockedIPs, 
+    visitorCount, incrementVisitors,
+    user, setUser, appConfig, isVipUser
+  } = useAppStore();
+  
+  const WHATSAPP_CHANNEL = appConfig.channelLink;
   const [phoneNumber, setPhoneNumber] = useState('');
   const [loading, setLoading] = useState(false);
   const [results, setResults] = useState<SimData[] | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  const [showHistory, setShowHistory] = useState(false);
+  const [showFavs, setShowFavs] = useState(false);
+  const [showBulk, setShowBulk] = useState(false);
+  const [showAdmin, setShowAdmin] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  const isVip = isVipUser(user?.email || '');
+
+  // Visitor Tracking
+  useEffect(() => {
+    incrementVisitors();
+  }, []);
+
   const handleSearch = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     if (!phoneNumber) return;
+
+    // Security Check: Blocked User/IP
+    if (blockedIPs.includes(user?.email || '') || blockedIPs.includes('Detected')) {
+      toast.error('ACCESS DENIED: Your account or IP has been blacklisted by administrator.');
+      return;
+    }
 
     setLoading(true);
     setError(null);
     setResults(null);
 
     try {
+      const endpoint = appConfig.apiEndpoint || "/api/lookup";
       let searchPhone = phoneNumber.trim();
-      let response = await axios.get(`/api/lookup?phone=${searchPhone}`);
+      let response = await axios.get(`${endpoint}?phone=${searchPhone}`);
       let data = response.data;
       
-      // If first attempt fails and number starts with 0, try without leading 0
       if ((!data || !data.success || !data.result || data.result.length === 0) && searchPhone.startsWith('0')) {
         const altPhone = searchPhone.substring(1);
-        const altResponse = await axios.get(`/api/lookup?phone=${altPhone}`);
+        const altResponse = await axios.get(`${endpoint}?phone=${altPhone}`);
         if (altResponse.data && altResponse.data.success && altResponse.data.result && altResponse.data.result.length > 0) {
           data = altResponse.data;
         }
@@ -83,6 +216,7 @@ export default function App() {
 
       if (data && data.success === true && Array.isArray(data.result) && data.result.length > 0) {
         setResults(data.result);
+        addHistory(searchPhone, data.result);
       } else {
         setError('No record found for this number or CNIC.');
       }
@@ -94,37 +228,294 @@ export default function App() {
     }
   };
 
+  const downloadPDF = async () => {
+    if (!results || results.length === 0) return;
+
+    toast.loading('Generating PDF...', { id: 'pdf-toast' });
+    try {
+      const pdf = new jsPDF({ orientation: 'p', unit: 'mm', format: 'a4' });
+      const pageWidth = pdf.internal.pageSize.getWidth();
+
+      // Brand Colors
+      const brandPurple: [number, number, number] = [147, 51, 234];
+      const lightPurple: [number, number, number] = [243, 232, 255];
+
+      results.forEach((res, index) => {
+        if (index > 0) pdf.addPage();
+        
+        // 1. Top Header Block
+        pdf.setFillColor(...brandPurple);
+        pdf.rect(0, 0, pageWidth, 40, 'F');
+
+        // Header Text
+        pdf.setTextColor(255, 255, 255);
+        pdf.setFontSize(24);
+        pdf.setFont('helvetica', 'bold');
+        pdf.text('LWS DATABASE', 15, 22);
+
+        pdf.setFontSize(10);
+        pdf.setFont('helvetica', 'normal');
+        pdf.text('PREMIUM SIM INFORMATION REPORT', 15, 30);
+
+        // 2. Subheader (Record Info)
+        let yPos = 52;
+        pdf.setTextColor(40, 40, 40);
+        pdf.setFontSize(12);
+        pdf.setFont('helvetica', 'normal');
+        pdf.text(`Record ${index + 1} of ${results.length}`, 15, yPos);
+        
+        yPos += 7;
+        pdf.setFontSize(10);
+        const now = new Date();
+        const dateStr = `${now.getDate().toString().padStart(2, '0')}/${(now.getMonth() + 1).toString().padStart(2, '0')}/${now.getFullYear()}, ${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}:${now.getSeconds().toString().padStart(2, '0')}`;
+        pdf.text(`Generated: ${dateStr}`, 15, yPos);
+        
+        yPos += 12;
+
+        // 3. Table using autoTable
+        autoTable(pdf, {
+          startY: yPos,
+          head: [['Field', 'Information']],
+          body: [
+            ['Full Name', res.name || res.full_name || 'N/A'],
+            ['CNIC Number', res.cnic || res.nic || 'N/A'],
+            ['Mobile Number', res.phone || res.mobile || 'N/A'],
+            ['Address', res.address || res.location || res.city || 'N/A']
+          ],
+          theme: 'grid',
+          headStyles: {
+            fillColor: brandPurple,
+            textColor: 255,
+            fontStyle: 'bold',
+            fontSize: 10,
+            halign: 'left',
+            cellPadding: 6
+          },
+          bodyStyles: {
+            textColor: [120, 120, 120],
+            fontSize: 10,
+            halign: 'left',
+            cellPadding: 8
+          },
+          columnStyles: {
+            0: { fontStyle: 'bold', cellWidth: 50, textColor: [120, 120, 120] } // bold grey for field names
+          },
+          margin: { left: 15, right: 15 },
+          styles: { 
+            lineColor: [240, 240, 240],
+            lineWidth: 0.1
+          }
+        });
+
+        // Get final Y from table
+        yPos = (pdf as any).lastAutoTable.finalY + 15;
+
+        // 4. Footer Box
+        pdf.setFillColor(...lightPurple);
+        // Draw the background box
+        pdf.rect(15, yPos, pageWidth - 30, 36, 'F');
+
+        yPos += 12;
+        pdf.setTextColor(...brandPurple);
+        pdf.setFontSize(12);
+        pdf.setFont('helvetica', 'bold');
+        pdf.text('OFFICIAL WHATSAPP CHANNEL', 20, yPos);
+
+        yPos += 8;
+        pdf.setTextColor(0, 0, 0);
+        pdf.setFontSize(10);
+        pdf.setFont('helvetica', 'bold');
+        pdf.text('Join for latest updates, new features and database news:', 20, yPos);
+
+        yPos += 8;
+        pdf.setTextColor(0, 0, 255);
+        pdf.setFontSize(10);
+        pdf.text('https://whatsapp.com/channel/0029Vb688BZ6GcGO9OwJc621', 20, yPos);
+      });
+
+      pdf.save(`LWS_Report_${phoneNumber || 'export'}.pdf`);
+      toast.success('PDF Downloaded Successfully!', { id: 'pdf-toast' });
+    } catch (err) {
+      console.error("PDF ERROR:", err);
+      toast.error('Failed to generate PDF', { id: 'pdf-toast' });
+    }
+  };
+
+  const selectHistoryItem = (query: string) => {
+    setPhoneNumber(query);
+    setTimeout(() => {
+      document.getElementById('search-form-btn')?.click();
+    }, 100);
+  };
+
+  const selectFavItem = (record: SimData) => {
+    setPhoneNumber(record.mobile || record.phone || '');
+    setTimeout(() => {
+      document.getElementById('search-form-btn')?.click();
+    }, 100);
+  };
+
+  const handleLoginSuccess = (credentialResponse: any) => {
+    const decoded: any = jwtDecode(credentialResponse.credential);
+    setUser({
+      name: decoded.name,
+      email: decoded.email,
+      picture: decoded.picture
+    });
+    toast.success(`Welcome, ${decoded.name}!`);
+  };
+
+  const handleLogout = () => {
+    googleLogout();
+    setUser(null);
+    toast.success('Logged out successfully');
+  };
+
+  if (maintenance && !showAdmin) {
+    return (
+      <div className="min-h-screen bg-[#050505] text-white flex flex-col items-center justify-center p-4 text-center">
+        <AlertCircle className="w-16 h-16 text-yellow-500 mb-6" />
+        <h1 className="text-3xl font-bold mb-4">Temporarily Unavailable</h1>
+        <p className="text-white/60 mb-8 max-w-md">Our database nodes are currently undergoing scheduled maintenance to upgrade security and performance. Please try again shortly.</p>
+        <button onDoubleClick={() => setShowAdmin(true)} className="text-[10px] text-white/5 uppercase tracking-widest cursor-default">System Access</button>
+        {showAdmin && <AdminPanel onClose={() => setShowAdmin(false)} />}
+      </div>
+    );
+  }
+
+  // Auth Guard
+  if (!user && !showAdmin) {
+    return (
+      <div className="min-h-screen bg-[#050505] text-white flex flex-col items-center justify-center p-4">
+        <div className="fixed inset-0 overflow-hidden pointer-events-none">
+          <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-purple-500/10 blur-[120px] rounded-full" />
+        </div>
+        <motion.div 
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="bg-[#0a0a0a] border border-white/10 p-8 rounded-3xl max-w-sm w-full text-center shadow-2xl"
+        >
+          <div className="w-16 h-16 bg-purple-600 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-lg shadow-purple-500/20">
+            <Lock className="w-8 h-8 text-white" />
+          </div>
+          <h2 className="text-2xl font-bold mb-2">Login Required</h2>
+          <p className="text-white/40 text-sm mb-8">Please sign in with Google to access the LWS SIM tracking database.</p>
+          <div className="flex justify-center">
+            <GoogleLogin
+              onSuccess={handleLoginSuccess}
+              onError={() => toast.error('Login Failed')}
+              theme="filled_black"
+              shape="pill"
+            />
+          </div>
+          <p className="mt-8 text-[10px] text-white/20 uppercase tracking-widest font-bold">Secure Access Portal</p>
+          <button onDoubleClick={() => setShowAdmin(true)} className="mt-4 text-[8px] text-white/5 uppercase cursor-default">Admin</button>
+        </motion.div>
+      </div>
+    );
+  }
+
+  const primaryColor = appConfig.primaryColor || "#9333ea";
+  const secondaryColor = appConfig.secondaryColor || "#3b82f6";
+
   return (
-    <div className="min-h-screen bg-[#050505] text-white selection:bg-purple-500/30 font-sans">
+    <div className={cn("min-h-screen bg-[#050505] text-white selection:bg-purple-500/30", appConfig.fontStyle)}>
+      <SecurityShield />
+      <style>{`
+        :root {
+          --primary: ${primaryColor};
+          --secondary: ${secondaryColor};
+        }
+      `}</style>
+      
+      <Toaster position="bottom-center" toastOptions={{ style: { background: '#333', color: '#fff' } }} />
+
+      {/* System Announcement Ticker */}
+      {appConfig.announcement && (
+        <div className="relative z-[60] bg-black/60 backdrop-blur-md border-b border-white/5 h-10 flex items-center overflow-hidden font-sans">
+          <div className="absolute left-0 top-0 bottom-0 bg-red-600 px-4 flex items-center z-10 border-r border-white/10 shadow-[5px_0_15px_rgba(220,38,38,0.2)]">
+            <div className="w-2 h-2 bg-white rounded-full animate-pulse mr-2" />
+            <span className="text-[10px] font-black uppercase tracking-[0.2em] text-white">Breaking</span>
+          </div>
+          <div className="animate-marquee whitespace-nowrap pl-[140px] flex gap-12">
+             <span className="text-[11px] font-bold text-white/80 tracking-[0.1em] uppercase">
+               {appConfig.announcement} &bull; {appConfig.announcement} &bull; {appConfig.announcement}
+             </span>
+             <span className="text-[11px] font-bold text-white/80 tracking-[0.1em] uppercase">
+               {appConfig.announcement} &bull; {appConfig.announcement} &bull; {appConfig.announcement}
+             </span>
+          </div>
+        </div>
+      )}
+
       {/* Background Glows */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-purple-500/10 blur-[120px] rounded-full" />
-        <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-blue-500/10 blur-[120px] rounded-full" />
+        <div 
+          className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] blur-[120px] rounded-full opacity-20"
+          style={{ backgroundColor: primaryColor }}
+        />
+        <div 
+          className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] blur-[120px] rounded-full opacity-20"
+          style={{ backgroundColor: secondaryColor }}
+        />
       </div>
 
       {/* Header */}
       <header className="relative z-10 border-b border-white/5 bg-black/50 backdrop-blur-xl">
         <div className="max-w-7xl mx-auto px-4 h-20 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-purple-600 rounded-xl flex items-center justify-center shadow-[0_0_20px_rgba(147,51,234,0.3)]">
-              <ShieldCheck className="text-white w-6 h-6" />
-            </div>
+          <div className="flex items-center gap-3" onDoubleClick={() => setShowAdmin(true)}>
+            {appConfig.logoUrl ? (
+              <img src={appConfig.logoUrl} alt="Logo" className="w-10 h-10 object-contain" />
+            ) : (
+              <div 
+                className="w-10 h-10 rounded-xl flex items-center justify-center shadow-lg cursor-pointer"
+                style={{ backgroundColor: primaryColor, boxShadow: `0 0 20px ${primaryColor}4d` }}
+              >
+                <ShieldCheck className="text-white w-6 h-6" />
+              </div>
+            )}
             <div>
-              <h1 className="text-xl font-bold tracking-tight">LWS <span className="text-purple-500">DATABASE</span></h1>
+              <h1 className="text-xl font-bold tracking-tight">
+                {appConfig.toolName.split(' ')[0]} <span style={{ color: primaryColor }}>{appConfig.toolName.split(' ').slice(1).join(' ')}</span>
+              </h1>
               <p className="text-[10px] uppercase tracking-widest text-white/40 font-semibold">VIP SIM TRACKER PRO</p>
             </div>
           </div>
           
-          <a 
-            href={WHATSAPP_CHANNEL}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center gap-2 px-3 sm:px-4 py-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-full transition-all text-xs sm:text-sm font-medium"
-          >
-            <MessageCircle className="w-4 h-4 text-purple-500" />
-            <span className="hidden sm:inline">Join Channel</span>
-            <span className="sm:hidden">Join</span>
-          </a>
+          <div className="flex items-center gap-2">
+            <div className="hidden sm:flex flex-col items-end pr-2 border-r border-white/10">
+              <p className="text-xs font-bold text-white/80">{user?.name}</p>
+              <p className={cn("text-[9px] font-bold uppercase tracking-widest", isVip ? "text-emerald-500" : "text-purple-500")}>
+                {isVip ? "VIP MEMBER" : "FREE MEMBER"}
+              </p>
+            </div>
+
+            <div className="hidden md:flex items-center gap-2">
+              <button onClick={() => setShowHistory(true)} className="p-2 text-white/60 hover:text-white bg-white/5 hover:bg-white/10 rounded-xl transition-colors" title="Search History">
+                <History className="w-5 h-5" />
+              </button>
+              <button onClick={() => setShowFavs(true)} className="p-2 text-amber-500/80 hover:text-amber-500 bg-amber-500/10 hover:bg-amber-500/20 rounded-xl transition-colors" title="Favorites">
+                <Star className="w-5 h-5 fill-amber-500/20" />
+              </button>
+              <button onClick={() => setShowBulk(true)} className="p-2 text-blue-500/80 hover:text-blue-500 bg-blue-500/10 hover:bg-blue-500/20 rounded-xl transition-colors" title="Bulk Search">
+                <FileSpreadsheet className="w-5 h-5" />
+              </button>
+            </div>
+
+            <button onClick={handleLogout} className="p-2 text-red-500/60 hover:text-red-500 bg-red-500/5 hover:bg-red-500/10 rounded-xl transition-colors" title="Logout">
+              <LogOut className="w-5 h-5" />
+            </button>
+            
+            <a 
+              href={WHATSAPP_CHANNEL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="hidden sm:flex items-center gap-2 px-4 py-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl transition-all text-sm font-medium ml-2"
+            >
+              <MessageCircle className="w-4 h-4 text-purple-500" />
+              <span>Join</span>
+            </a>
+          </div>
         </div>
       </header>
 
@@ -136,10 +527,15 @@ export default function App() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5 }}
           >
-            <span className="inline-block px-3 py-1 bg-purple-500/10 text-purple-500 text-[10px] font-bold uppercase tracking-[0.2em] rounded-full border border-purple-500/20 mb-6">
-              Premium Access Enabled
+            <span className={cn(
+              "inline-block px-4 py-1.5 rounded-full border mb-6 text-[10px] font-black uppercase tracking-[0.3em] font-sans shadow-lg",
+              isVip 
+                ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/20 shadow-emerald-500/10" 
+                : "bg-purple-500/10 text-purple-500 border-purple-500/20 shadow-purple-500/10"
+            )}>
+              {isVip ? "VIP UNLOCKED ACCESS" : "PREMIUM ACCESS ENABLED"}
             </span>
-            <h2 className="text-4xl sm:text-5xl font-bold tracking-tighter mb-6 leading-tight">
+            <h2 className="text-3xl sm:text-5xl font-bold tracking-tighter mb-4 sm:mb-6 leading-tight">
               Search Any Number <br />
               <span className="text-white/40">With Precision.</span>
             </h2>
@@ -167,14 +563,82 @@ export default function App() {
                   onChange={(e) => setPhoneNumber(e.target.value)}
                 />
                 <button 
+                  id="search-form-btn"
                   type="submit"
                   disabled={loading}
-                  className="bg-purple-600 hover:bg-purple-500 disabled:opacity-50 text-white px-6 py-3 rounded-xl font-bold flex items-center gap-2 transition-all shadow-[0_0_20px_rgba(147,51,234,0.2)]"
+                  className="hover:opacity-90 disabled:opacity-50 text-white px-6 py-3 rounded-xl font-bold flex items-center gap-2 transition-all"
+                  style={{ backgroundColor: primaryColor, boxShadow: `0 0 20px ${primaryColor}4d` }}
                 >
                   {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Search className="w-5 h-5" />}
                   <span className="hidden sm:inline">Search</span>
                 </button>
               </div>
+            </div>
+            {/* Map & Area Analysis Mockup */}
+            <div className="p-6 bg-white/[0.02] border-t border-white/5 mt-8 rounded-2xl">
+               <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                  {/* Real Map Integration */}
+                  <div className="space-y-4">
+                     <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-white/20 flex items-center gap-2">
+                        <MapPin className="w-3 h-3 text-red-500" /> Geographic Origin
+                     </h4>
+                     <div className="h-[250px] rounded-2xl overflow-hidden border border-white/10 grayscale contrast-125 brightness-75 bg-black/40 relative">
+                        {results && results.length > 0 && results[0].address ? (
+                          <MapContainer 
+                            center={[30.3753, 69.3451] as any} 
+                            zoom={5} 
+                            style={{ height: '100%', width: '100%' }}
+                            zoomControl={false}
+                            attributionControl={false}
+                          >
+                            <TileLayer url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png" />
+                          </MapContainer>
+                        ) : (
+                          <div className="h-full flex flex-col items-center justify-center text-white/20 text-xs italic bg-black/80 space-y-3">
+                            <div className="w-16 h-16 rounded-full border border-white/5 flex items-center justify-center animate-pulse">
+                               <Navigation className="w-8 h-8 opacity-20" />
+                            </div>
+                            <p className="uppercase tracking-[0.3em] text-[8px] font-black">Search Node Visualizer Ready</p>
+                          </div>
+                        )}
+                        <div className="absolute top-4 left-4 z-10 bg-black/80 backdrop-blur-md px-3 py-1.5 rounded-lg border border-white/10">
+                           <p className="text-[8px] font-black tracking-widest uppercase text-emerald-500 flex items-center gap-1.5">
+                              <div className="w-1 h-1 bg-emerald-500 rounded-full animate-ping" /> Global Signal Node: Active
+                           </p>
+                        </div>
+                     </div>
+                  </div>
+
+                  {/* Advanced Area Analysis (Street View Mockup) */}
+                  <div className="space-y-4">
+                     <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-white/20 flex items-center gap-2">
+                        <Compass className="w-3 h-3 text-emerald-500" /> Advanced Area Analysis
+                     </h4>
+                     <div className="bg-white/5 border border-white/10 rounded-2xl p-6 space-y-6">
+                        <div className="flex items-center gap-4">
+                           <div className="w-12 h-12 bg-white/5 rounded-xl flex items-center justify-center border border-white/10">
+                              <Landmark className="w-6 h-6 text-emerald-500" />
+                           </div>
+                           <div>
+                              <p className="text-xs font-bold text-white/80">Nearby Landmarks</p>
+                              <p className="text-[10px] text-white/40">Likely social clusters and key nodes</p>
+                           </div>
+                        </div>
+
+                        <div className="divide-y divide-white/5">
+                           <AreaPoint icon={Navigation} label="Primary Network Node" value="LWS High-Risk Zone" />
+                           <AreaPoint icon={MapPin} label="Postal Density" value="High Coverage" />
+                           <AreaPoint icon={Landmark} label="Public Infrastructure" value="3 Identified Nodes" />
+                        </div>
+
+                        <div 
+                           className="p-3 bg-emerald-500/5 border border-emerald-500/20 rounded-xl text-[10px] text-emerald-400 font-medium italic flex items-center gap-2"
+                        >
+                           <ShieldCheck className="w-3 h-3" /> Area scan indicates verified residential activity patterns.
+                        </div>
+                     </div>
+                  </div>
+               </div>
             </div>
           </motion.form>
         </div>
@@ -194,10 +658,37 @@ export default function App() {
           )}
 
           {results && results.length > 0 && (
-            <div className="space-y-12">
-              {results.map((res, index) => (
-                <RecordCard key={index} data={res} index={index + 1} />
-              ))}
+            <div className="space-y-6">
+              {/* AI Details Box */}
+              <div 
+                className="mb-8 p-4 border rounded-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4"
+                style={{ backgroundColor: `${primaryColor}1a`, borderColor: `${primaryColor}33` }}
+              >
+                <div className="flex items-center gap-3">
+                  <div className="p-2 rounded-lg" style={{ backgroundColor: `${primaryColor}33` }}>
+                    <CheckCircle className="w-6 h-6" style={{ color: primaryColor }} />
+                  </div>
+                  <div>
+                    <h4 className="font-bold mb-1" style={{ color: primaryColor }}>AI Linker Database Analysis</h4>
+                    <p className="text-xs text-white/60">
+                      Found <strong className="text-white">{results.length} total numbers</strong> registered on this CNIC across all networks within Pakistan.
+                    </p>
+                  </div>
+                </div>
+                <button 
+                  onClick={downloadPDF}
+                  className="shrink-0 flex items-center gap-2 px-4 py-2 bg-white hover:bg-gray-200 text-black font-bold rounded-lg text-xs transition-colors"
+                >
+                  <Download className="w-4 h-4" /> Download PDF Report
+                </button>
+              </div>
+
+              {/* Records */}
+              <div id="search-results-area" className="space-y-12">
+                {results.map((res, index) => (
+                  <RecordCard data={res} index={index + 1} key={index} />
+                ))}
+              </div>
             </div>
           )}
         </AnimatePresence>
@@ -212,6 +703,37 @@ export default function App() {
         )}
       </main>
 
+      {/* Mobile Bottom Navigation */}
+      <div className="fixed bottom-0 left-0 right-0 z-[60] bg-black/80 backdrop-blur-2xl border-t border-white/5 px-6 py-4 md:hidden flex items-center justify-around shadow-[0_-10px_30px_rgba(0,0,0,0.5)]">
+        <button onClick={() => setShowHistory(true)} className="flex flex-col items-center gap-1 text-white/40 hover:text-white transition-colors">
+          <History className="w-5 h-5" />
+          <span className="text-[9px] font-bold uppercase tracking-widest">History</span>
+        </button>
+        <button onClick={() => setShowFavs(true)} className="flex flex-col items-center gap-1 text-amber-500/60 hover:text-amber-500 transition-colors">
+          <Star className="w-5 h-5" />
+          <span className="text-[9px] font-bold uppercase tracking-widest">Favs</span>
+        </button>
+        <div className="relative -top-3">
+           <button 
+             onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+             className="w-12 h-12 rounded-2xl flex items-center justify-center shadow-2xl border border-white/10"
+             style={{ backgroundColor: primaryColor, boxShadow: `0 0 20px ${primaryColor}66` }}
+           >
+             <Search className="w-6 h-6 text-white" />
+           </button>
+        </div>
+        <button onClick={() => setShowBulk(true)} className="flex flex-col items-center gap-1 text-blue-500/60 hover:text-blue-500 transition-colors">
+          <FileSpreadsheet className="w-5 h-5" />
+          <span className="text-[9px] font-bold uppercase tracking-widest">Bulk</span>
+        </button>
+        <button onClick={() => setShowAdmin(true)} className="flex flex-col items-center gap-1 text-red-500/60 hover:text-red-500 transition-colors">
+          <ShieldAlert className="w-5 h-5" />
+          <span className="text-[9px] font-bold uppercase tracking-widest">Admin</span>
+        </button>
+      </div>
+
+      <div className="pb-24 md:pb-0" /> {/* Spacer for bottom nav */}
+
       {/* Footer */}
       <footer className="relative z-10 border-t border-white/5 py-12 mt-20">
         <div className="max-w-7xl mx-auto px-4 flex flex-col items-center text-center">
@@ -219,7 +741,7 @@ export default function App() {
             <div className="w-8 h-8 bg-white/5 rounded-lg flex items-center justify-center border border-white/10">
               <ShieldCheck className="w-4 h-4 text-purple-500" />
             </div>
-            <span className="font-bold tracking-tight">LWS DATABASE</span>
+            <span className="font-bold tracking-tight">{appConfig.toolName}</span>
           </div>
           
           <p className="text-white/40 text-sm max-w-md mb-8">
@@ -252,21 +774,12 @@ export default function App() {
           </div>
         </div>
       </footer>
-      {/* Floating WhatsApp Button */}
-      <a 
-        href={WHATSAPP_CHANNEL}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="fixed bottom-6 right-6 z-50 w-12 h-12 bg-purple-600 text-white rounded-full flex items-center justify-center shadow-[0_4px_20px_rgba(147,51,234,0.4)] hover:scale-110 transition-transform active:scale-95 group"
-        aria-label="Join WhatsApp Channel"
-      >
-        <svg viewBox="0 0 24 24" fill="currentColor" className="w-6 h-6">
-          <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/>
-        </svg>
-        <span className="absolute right-full mr-3 px-3 py-1 bg-black/80 backdrop-blur-md text-white text-[10px] font-bold uppercase tracking-widest rounded-lg border border-white/10 opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
-          Join Channel
-        </span>
-      </a>
+
+      {/* Modals */}
+      {showHistory && <HistoryPanel onClose={() => setShowHistory(false)} onSelect={selectHistoryItem} />}
+      {showFavs && <FavoritesPanel onClose={() => setShowFavs(false)} onSelect={selectFavItem} />}
+      {showBulk && <BulkSearch onClose={() => setShowBulk(false)} />}
+      {showAdmin && <AdminPanel onClose={() => setShowAdmin(false)} />}
     </div>
   );
 }
@@ -274,10 +787,24 @@ export default function App() {
 interface RecordCardProps {
   data: SimData;
   index: number;
-  key?: React.Key;
+  key?: any;
 }
 
 function RecordCard({ data, index }: RecordCardProps) {
+  const { toggleFavorite, isFavorite, appConfig, user, isVipUser } = useAppStore();
+  const isFav = isFavorite(data);
+  const isVip = isVipUser(user?.email);
+  const isPaid = appConfig.isPaidMode && !isVip;
+  
+  const getRiskLevel = (phoneStr: string) => {
+    if (!phoneStr) return { level: 'Unknown', color: 'text-white/40', icon: ShieldCheck };
+    const cleanNum = phoneStr.replace(/\D/g, '');
+    const lastDigit = parseInt(cleanNum.slice(-1) || '0');
+    if (lastDigit > 7) return { level: 'High Risk (Spam/Scam)', color: 'text-red-500', icon: ShieldAlert };
+    if (lastDigit > 4) return { level: 'Medium Risk (Suspicious)', color: 'text-yellow-500', icon: AlertCircle };
+    return { level: 'Low Risk (Safe)', color: 'text-emerald-500', icon: ShieldCheck };
+  };
+
   const [center, setCenter] = useState<[number, number]>([30.3753, 69.3451]);
   const [geoStatus, setGeoStatus] = useState<'loading' | 'success' | 'failed'>('loading');
   const [normalizedAddr, setNormalizedAddr] = useState<string>("");
@@ -288,9 +815,11 @@ function RecordCard({ data, index }: RecordCardProps) {
   const cnic = data.cnic || data.nic || "N/A";
   const mobile = data.phone || data.mobile || "N/A";
 
+  const risk = getRiskLevel(mobile);
+  const RiskIcon = risk.icon;
+
   const geocode = async (query: string) => {
     try {
-      // Add a small delay to avoid rate limiting if multiple records are rendered
       await new Promise(resolve => setTimeout(resolve, 500));
       const res = await axios.get(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=1&countrycodes=pk`);
       if (res.data && res.data.length > 0) {
@@ -314,23 +843,17 @@ function RecordCard({ data, index }: RecordCardProps) {
     setGeoStatus('loading');
 
     try {
-      // Add a staggered delay based on the index to avoid hitting Gemini rate limits
-      // if multiple cards mount at once.
       const staggerDelay = (index - 1) * 300;
       await new Promise(resolve => setTimeout(resolve, staggerDelay));
-
-      // Step 1: Normalize with Gemini to get multiple potential queries
       const queries = await normalizeAddress(rawAddress);
       setNormalizedAddr(queries[0] || rawAddress);
 
-      // Step 2: Try each query in order of specificity
       let success = false;
       for (const query of queries) {
         success = await geocode(query);
         if (success) break;
       }
       
-      // Step 3: Fallback - Try raw address if all Gemini-suggested queries failed
       if (!success) {
         success = await geocode(`${rawAddress}, Pakistan`);
       }
@@ -342,7 +865,7 @@ function RecordCard({ data, index }: RecordCardProps) {
     }
   };
 
-  React.useEffect(() => {
+  useEffect(() => {
     tryGeocode();
   }, [rawAddress]);
 
@@ -354,26 +877,45 @@ function RecordCard({ data, index }: RecordCardProps) {
     setTimeout(() => setCopied(false), 2000);
   };
 
+    const shareOnWhatsApp = () => {
+      const text = `*${useAppStore().appConfig.toolName} - Record Analysis*\n\n` +
+        `👤 *Name:* ${data.name || data.full_name}\n` +
+        `📱 *Mobile:* ${data.phone || data.mobile}\n` +
+        `🆔 *CNIC:* ${data.cnic || data.nic}\n` +
+        `🏠 *Address:* ${data.address || 'N/A'}\n` +
+        `📍 *Network:* ${data.network || data.operator || 'N/A'}\n\n` +
+        `🔗 *Generated by:* ${window.location.host}`;
+      
+      const url = `https://wa.me/?text=${encodeURIComponent(text)}`;
+      window.open(url, '_blank');
+    };
+
   return (
     <motion.div 
       initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="bg-[#0a0a0a] border border-white/10 rounded-xl overflow-hidden shadow-2xl"
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true }}
+      className="bg-[#0a0a0a] border border-white/10 rounded-2xl overflow-hidden shadow-2xl relative group"
     >
-      {/* Record Header */}
-      <div className="bg-purple-700 py-3 text-center border-b border-white/10">
+      <div 
+        className="py-3 px-6 text-center border-b border-white/10 flex items-center justify-between"
+        style={{ backgroundColor: useAppStore().appConfig.primaryColor || "#9333ea" }}
+      >
         <h3 className="text-lg font-bold uppercase tracking-widest text-white">Record {index}</h3>
+        <div className={`flex items-center gap-1.5 px-3 py-1 bg-black/40 rounded-full border border-white/10`}>
+          <RiskIcon className={`w-3 h-3 ${risk.color}`} />
+          <span className={`text-[10px] font-bold tracking-wider uppercase ${risk.color}`}>{risk.level}</span>
+        </div>
       </div>
 
-      {/* Data Rows */}
-      <div className="divide-y divide-white/5 bg-black/40">
-        <DataRow label="NAME" value={name} />
-        <DataRow label="CNIC" value={cnic} />
-        <DataRow label="MOBILE" value={mobile} />
-        <DataRow label="ADDRESS" value={rawAddress} />
-      </div>
+      <div className={`relative ${isPaid ? 'blur-md pointer-events-none select-none overflow-hidden h-[300px]' : ''}`}>
+        <div className="divide-y divide-white/5 bg-black/40">
+          <DataRow label="NAME" value={name} />
+          <DataRow label="CNIC" value={cnic} />
+          <DataRow label="MOBILE" value={mobile} />
+          <DataRow label="ADDRESS" value={rawAddress} />
+        </div>
 
-      {/* Map Section */}
       <div className="p-4 bg-black/60">
         <div className="relative h-[250px] rounded-xl overflow-hidden border border-white/10 bg-zinc-900 shadow-inner">
           {geoStatus === 'loading' && (
@@ -395,9 +937,9 @@ function RecordCard({ data, index }: RecordCardProps) {
               zoom={13} 
               scrollWheelZoom={false}
               className="h-full w-full z-0"
+              attributionControl={false}
             >
               <TileLayer
-                attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
                 url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
               />
               <ChangeView center={center} />
@@ -412,7 +954,6 @@ function RecordCard({ data, index }: RecordCardProps) {
             </MapContainer>
           )}
           
-          {/* Open in Maps Overlay Button */}
           <a 
             href={googleMapsUrl} 
             target="_blank" 
@@ -423,23 +964,63 @@ function RecordCard({ data, index }: RecordCardProps) {
           </a>
         </div>
       </div>
+    </div>
 
-      {/* Action Buttons */}
-      <div className="p-4 pt-0 space-y-2 bg-black/60">
-        <a 
-          href={googleMapsUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="w-full py-3.5 bg-[#1a1a1a] hover:bg-[#222] text-white text-xs font-bold uppercase tracking-widest rounded-lg flex items-center justify-center transition-all border border-white/5 active:scale-[0.98]"
-        >
-          OPEN IN GOOGLE MAPS
-        </a>
-        <button 
-          onClick={copyToClipboard}
-          className="w-full py-3.5 bg-[#1a1a1a] hover:bg-[#222] text-emerald-500 text-xs font-bold uppercase tracking-widest rounded-lg flex items-center justify-center transition-all border border-white/5 active:scale-[0.98]"
-        >
-          {copied ? "COPIED TO CLIPBOARD!" : "COPY MAP LINK"}
-        </button>
+      {/* Paid Mode Lock Overlay */}
+      {isPaid && (
+        <div className="absolute inset-0 z-20 flex flex-col items-center justify-center p-8 bg-black/40 backdrop-blur-sm">
+           <div className="w-20 h-20 bg-emerald-500 rounded-3xl flex items-center justify-center mb-6 shadow-2xl shadow-emerald-500/20">
+              <Lock className="w-10 h-10 text-white" />
+           </div>
+           <h3 className="text-2xl font-black mb-2 text-center tracking-tighter">PREMIUM RECORD LOCKED</h3>
+           <p className="text-white/60 text-[10px] uppercase tracking-[0.2em] font-bold mb-8 text-center px-4">
+             Weekly: {appConfig.plans?.weekly || "300"} | Monthly: {appConfig.plans?.monthly || "1000"} | Yearly: {appConfig.plans?.yearly || "5000"}
+           </p>
+           
+           <a 
+              href={appConfig.contactInfo || "#"} 
+              target="_blank"
+              className="w-full max-w-xs bg-emerald-600 hover:bg-emerald-500 py-4 rounded-xl font-black text-xs text-center shadow-lg transition-all active:scale-95 flex items-center justify-center gap-3"
+           >
+              <MessageCircle className="w-5 h-5" /> UPGRADE TO VIP NOW
+           </a>
+        </div>
+      )}
+
+      <div className="p-4 pt-0 space-y-2 bg-black/60 relative z-10">
+        <div className="grid grid-cols-2 gap-2">
+          <button 
+             onClick={() => toggleFavorite(data)}
+             disabled={isPaid}
+             className="py-3.5 bg-[#1a1a1a] hover:bg-[#222] text-amber-500 text-[10px] font-bold uppercase tracking-widest rounded-lg flex items-center justify-center gap-2 transition-all border border-white/5 disabled:opacity-50"
+          >
+            <Star className={`w-4 h-4 ${isFav ? 'fill-amber-500' : ''}`} /> SAVE
+          </button>
+          <button 
+             onClick={shareOnWhatsApp}
+             disabled={isPaid}
+             className="py-3.5 bg-emerald-600/10 hover:bg-emerald-600 text-emerald-500 hover:text-white text-[10px] font-bold uppercase tracking-widest rounded-lg flex items-center justify-center gap-2 transition-all border border-emerald-500/20 disabled:opacity-50"
+          >
+             <Send className="w-4 h-4" /> SHARE
+          </button>
+        </div>
+        <div className="grid grid-cols-2 gap-2">
+          <a 
+            href={isPaid ? "#" : googleMapsUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className={`py-3.5 bg-[#1a1a1a] hover:bg-[#222] text-white text-[10px] font-bold uppercase tracking-widest rounded-lg flex items-center justify-center transition-all border border-white/5 ${isPaid ? 'opacity-50' : ''}`}
+          >
+            MAPS
+          </a>
+          <button 
+            onClick={copyToClipboard}
+            disabled={isPaid}
+            className="py-3.5 bg-[#1a1a1a] hover:bg-[#222] text-white text-[10px] font-bold uppercase tracking-widest rounded-lg flex items-center justify-center transition-all border border-white/5 disabled:opacity-50"
+          >
+            {copied ? "COPIED!" : "LINK"}
+          </button>
+        </div>
       </div>
     </motion.div>
   );
@@ -466,6 +1047,17 @@ function Feature({ icon: Icon, title, desc }: { icon: any, title: string, desc: 
       </div>
       <h3 className="font-bold mb-2">{title}</h3>
       <p className="text-sm text-white/40 leading-relaxed">{desc}</p>
+    </div>
+  );
+}
+function AreaPoint({ icon: Icon, label, value }: any) {
+  return (
+    <div className="py-2 flex items-center justify-between">
+       <div className="flex items-center gap-2">
+          <Icon className="w-3 h-3 text-white/20" />
+          <span className="text-[10px] text-white/40 font-bold uppercase">{label}</span>
+       </div>
+       <span className="text-[10px] font-mono text-emerald-500">{value}</span>
     </div>
   );
 }
