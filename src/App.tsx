@@ -178,8 +178,6 @@ export default function App() {
   const [showBulk, setShowBulk] = useState(false);
   const [showAdmin, setShowAdmin] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [guestEmail, setGuestEmail] = useState('');
-  const [showManualLogin, setShowManualLogin] = useState(false);
 
   const isVip = isVipUser(user?.email || '');
 
@@ -367,20 +365,6 @@ export default function App() {
     toast.success(`Welcome, ${decoded.name}!`);
   };
 
-  const handleManualLogin = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!guestEmail || !guestEmail.includes('@')) {
-      return toast.error('Please enter a valid email');
-    }
-    setUser({
-      name: guestEmail.split('@')[0],
-      email: guestEmail,
-      picture: `https://ui-avatars.com/api/?name=${guestEmail}&background=random`
-    });
-    toast.success('Successfully Logged In!');
-    setShowManualLogin(false);
-  };
-
   const handleLogout = () => {
     googleLogout();
     setUser(null);
@@ -411,60 +395,25 @@ export default function App() {
           animate={{ opacity: 1, y: 0 }}
           className="bg-[#0a0a0a] border border-white/10 p-8 rounded-3xl max-w-sm w-full text-center shadow-2xl"
         >
+          <div 
+            onDoubleClick={() => setShowAdmin(true)}
+            className="w-16 h-16 bg-purple-600 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-lg shadow-purple-500/20 cursor-default active:scale-95 transition-transform"
+          >
+            <Lock className="w-8 h-8 text-white" />
+          </div>
           <h2 className="text-2xl font-bold mb-2">Login Required</h2>
-          <p className="text-white/40 text-sm mb-8">Please sign in to access the LWS SIM tracking database.</p>
+          <p className="text-white/40 text-sm mb-8">Please sign in with Google to access the LWS SIM tracking database.</p>
           
-          <div className="space-y-4">
-            {!showManualLogin ? (
-              <>
-                <div className="flex justify-center">
-                  <GoogleLogin
-                    onSuccess={handleLoginSuccess}
-                    theme="filled_black"
-                    shape="pill"
-                  />
-                </div>
-                <div className="flex items-center gap-4 my-4">
-                  <div className="h-[1px] flex-grow bg-white/5" />
-                  <span className="text-[10px] font-bold text-white/20 uppercase">OR</span>
-                  <div className="h-[1px] flex-grow bg-white/5" />
-                </div>
-                <button 
-                  onClick={() => setShowManualLogin(true)}
-                  className="w-full py-3 bg-white/5 hover:bg-white/10 border border-white/10 rounded-full text-xs font-bold transition-all uppercase tracking-widest"
-                >
-                  Login with Email
-                </button>
-              </>
-            ) : (
-              <form onSubmit={handleManualLogin} className="space-y-3">
-                <input 
-                  type="email" 
-                  placeholder="Enter your email"
-                  value={guestEmail}
-                  onChange={(e) => setGuestEmail(e.target.value)}
-                  className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-purple-500/50 outline-none"
-                  autoFocus
-                />
-                <button 
-                  type="submit"
-                  className="w-full py-3 bg-purple-600 hover:bg-purple-500 rounded-xl text-xs font-bold transition-all uppercase tracking-widest shadow-lg shadow-purple-500/20"
-                >
-                  Continue to App
-                </button>
-                <button 
-                  type="button"
-                  onClick={() => setShowManualLogin(false)}
-                  className="text-[10px] text-white/20 hover:text-white/40 uppercase tracking-widest"
-                >
-                  Back to Google Login
-                </button>
-              </form>
-            )}
+          <div className="flex justify-center">
+            <GoogleLogin
+              onSuccess={handleLoginSuccess}
+              onError={() => toast.error('Login Failed')}
+              theme="filled_black"
+              shape="pill"
+            />
           </div>
 
-          <p className="mt-8 text-[10px] text-white/20 uppercase tracking-widest font-bold">Secure Access Portal</p>
-          <button onDoubleClick={() => setShowAdmin(true)} className="mt-4 text-[8px] text-white/5 uppercase cursor-default">Admin Panel (Bypass)</button>
+          <p className="mt-12 text-[8px] text-white/5 uppercase tracking-[0.4em] font-black">Official Security Portal</p>
         </motion.div>
       </div>
     );
@@ -780,10 +729,6 @@ export default function App() {
         <button onClick={() => setShowBulk(true)} className="flex flex-col items-center gap-1 text-blue-500/60 hover:text-blue-500 transition-colors">
           <FileSpreadsheet className="w-5 h-5" />
           <span className="text-[9px] font-bold uppercase tracking-widest">Bulk</span>
-        </button>
-        <button onClick={() => setShowAdmin(true)} className="flex flex-col items-center gap-1 text-red-500/60 hover:text-red-500 transition-colors">
-          <ShieldAlert className="w-5 h-5" />
-          <span className="text-[9px] font-bold uppercase tracking-widest">Admin</span>
         </button>
       </div>
 
