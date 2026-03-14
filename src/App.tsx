@@ -578,45 +578,8 @@ export default function App() {
                 </button>
               </div>
             </div>
-            {/* Map & Area Analysis Mockup */}
-            <div className="p-6 bg-white/[0.02] border-t border-white/5 mt-8 rounded-2xl">
-               <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                  {/* Real Map Integration */}
-                  <div className="space-y-4">
-                     <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-white/20 flex items-center gap-2">
-                        <MapPin className="w-3 h-3 text-red-500" /> Geographic Origin
-                     </h4>
-                     <div className="h-[250px] rounded-2xl overflow-hidden border border-white/10 grayscale contrast-125 brightness-75 bg-black/40 relative">
-                        {results && results.length > 0 && results[0].address ? (
-                          <MapContainer 
-                            center={[30.3753, 69.3451] as any} 
-                            zoom={5} 
-                            style={{ height: '100%', width: '100%' }}
-                            zoomControl={false}
-                            attributionControl={false}
-                          >
-                            <TileLayer url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png" />
-                          </MapContainer>
-                        ) : (
-                          <div className="h-full flex flex-col items-center justify-center text-white/20 text-xs italic bg-black/80 space-y-3">
-                            <div className="w-16 h-16 rounded-full border border-white/5 flex items-center justify-center animate-pulse">
-                               <Navigation className="w-8 h-8 opacity-20" />
-                            </div>
-                            <p className="uppercase tracking-[0.3em] text-[8px] font-black">Search Node Visualizer Ready</p>
-                          </div>
-                        )}
-                        <div className="absolute top-4 left-4 z-10 bg-black/80 backdrop-blur-md px-3 py-1.5 rounded-lg border border-white/10">
-                           <p className="text-[8px] font-black tracking-widest uppercase text-emerald-500 flex items-center gap-1.5">
-                              <div className="w-1 h-1 bg-emerald-500 rounded-full animate-ping" /> Global Signal Node: Active
-                           </p>
-                        </div>
-                     </div>
-                  </div>
-
-                  {/* Space for better layout after removing Area Analysis */}
-                  <div className="md:h-20" />
-               </div>
-            </div>
+            {/* Removed redundant visualizer for cleaner interface */}
+            <div className="mt-8" />
           </motion.form>
         </div>
 
