@@ -400,6 +400,55 @@ export default function AdminPanel({ onClose }: { onClose: () => void }) {
                    </div>
 
                    <div className="space-y-4 pt-4 border-t border-white/5">
+                      <h4 className="text-xs font-bold uppercase tracking-[0.2em] text-white/20">Monetization & Paid Mode</h4>
+                      <div className="flex items-center justify-between p-4 bg-white/5 border border-white/10 rounded-xl mb-4">
+                         <div>
+                            <p className="text-xs font-bold">Enable Paid Lock</p>
+                            <p className="text-[9px] text-white/30 uppercase">Locks records behind a payment wall</p>
+                         </div>
+                         <button 
+                           onClick={() => setIsPaidMode(!isPaidMode)}
+                           className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${isPaidMode ? 'bg-emerald-600' : 'bg-white/10'}`}
+                         >
+                           <span className={`inline-block h-3 w-3 transform rounded-full bg-white transition-all ${isPaidMode ? 'translate-x-5' : 'translate-x-1'}`} />
+                         </button>
+                      </div>
+                      
+                      {isPaidMode && (
+                        <div className="grid grid-cols-3 gap-3 animate-in fade-in zoom-in-95 duration-300">
+                           <div className="space-y-1">
+                             <label className="text-[9px] font-bold text-white/40 uppercase px-1">Weekly Price</label>
+                             <input type="text" value={priceWeekly} onChange={(e) => setPriceWeekly(e.target.value)} className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-xs outline-none focus:border-emerald-500" />
+                           </div>
+                           <div className="space-y-1">
+                             <label className="text-[9px] font-bold text-white/40 uppercase px-1">Monthly Price</label>
+                             <input type="text" value={priceMonthly} onChange={(e) => setPriceMonthly(e.target.value)} className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-xs outline-none focus:border-emerald-500" />
+                           </div>
+                           <div className="space-y-1">
+                             <label className="text-[9px] font-bold text-white/40 uppercase px-1">Yearly Price</label>
+                             <input type="text" value={priceYearly} onChange={(e) => setPriceYearly(e.target.value)} className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-xs outline-none focus:border-emerald-500" />
+                           </div>
+                        </div>
+                      )}
+                      <div className="space-y-1 pt-2">
+                        <label className="text-[10px] font-bold text-white/40 uppercase px-1">Contact for Payment (URL/WhatsApp)</label>
+                        <input type="text" value={contactInfo} onChange={(e) => setContactInfo(e.target.value)} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-emerald-500/50 outline-none" placeholder="https://wa.link/..." />
+                      </div>
+                   </div>
+
+                   <div className="space-y-4 pt-4 border-t border-white/5">
+                      <h4 className="text-xs font-bold uppercase tracking-[0.2em] text-white/20">Scraper Protection & API Customization</h4>
+                      <div className="space-y-1">
+                         <label className="text-[10px] font-bold text-white/40 uppercase px-1">Scraper Warning Message</label>
+                         <input type="text" value={scraperMessage} onChange={(e) => setScraperMessage(e.target.value)} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-red-500/50 outline-none" />
+                      </div>
+                      <div className="space-y-1">
+                         <label className="text-[10px] font-bold text-white/40 uppercase px-1">Developer Contact URL</label>
+                         <input type="text" value={scraperContact} onChange={(e) => setScraperContact(e.target.value)} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-red-500/50 outline-none" />
+                      </div>
+                   </div>
+
+                   <div className="space-y-4 pt-4 border-t border-white/5">
                       <h4 className="text-xs font-bold uppercase tracking-[0.2em] text-white/20">Professional PDF Reporting</h4>
                       <div className="space-y-4">
                         <div className="space-y-1">
