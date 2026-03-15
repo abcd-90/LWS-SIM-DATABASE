@@ -1,5 +1,10 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
+import { createClient } from '@supabase/supabase-js';
+
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || "";
+const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY || "";
+const supabase = (SUPABASE_URL && SUPABASE_KEY) ? createClient(SUPABASE_URL, SUPABASE_KEY) : null;
 
 export interface SimData {
   name?: string;
@@ -97,16 +102,26 @@ export function useAppStore() {
     const listener = () => setTick(t => t + 1);
     listeners.add(listener);
 
-    // Initial Remote Fetch
+    // Initial Remote Fetch (Supabase / KV)
     const fetchRemoteConfig = async () => {
       try {
+        if (supabase) {
+          const { data, error } = await supabase.from('settings').select('config').eq('id', 1).single();
+          if (data && data.config) {
+            globalAppConfig = { ...globalAppConfig, ...data.config };
+            notify();
+            return;
+          }
+        }
+        
+        // Fallback to Vercel KV API
         const res = await axios.get('/api/config');
         if (res.data && Object.keys(res.data).length > 0) {
           globalAppConfig = { ...globalAppConfig, ...res.data };
           notify();
         }
       } catch (e) {
-        console.warn('Vercel KV not connected, using LocalStorage/Static config.');
+        console.warn('Remote config sync unavailable.');
       }
     };
     fetchRemoteConfig();
@@ -200,8 +215,13 @@ export function useAppStore() {
     globalAppConfig = { ...globalAppConfig, ...config };
     localStorage.setItem('sim_app_config', JSON.stringify(globalAppConfig));
     
-    // Remote Push
-    axios.post('/api/config', globalAppConfig).catch(e => console.warn('Sync failed: Vercel KV missing.'));
+    // Remote Push (Supabase)
+    if (supabase) {
+      supabase.from('settings').upsert({ id: 1, config: globalAppConfig }).then();
+    }
+    
+    // Remote Push (Vercel KV)
+    axios.post('/api/config', globalAppConfig).catch(e => {});
     
     notify();
   };
