@@ -105,53 +105,53 @@ export function useAppStore() {
     // Initial Remote Fetch - Essential for Mobile to get fresh data
     const fetchRemoteConfig = async () => {
       try {
-        if (supabase) {
-          const { data, error } = await supabase
-            .from('settings')
-            .select('config')
-            .eq('id', 1)
-            .single();
+        console.log('Attempting to fetch config from Supabase...');
+        const { data, error } = await supabase
+          .from('settings')
+          .select('config')
+          .eq('id', 1)
+          .single();
 
-          if (data && data.config) {
-            console.log('Fetching Fresh Config from DB...');
-            globalAppConfig = { ...globalAppConfig, ...data.config };
-            // Save to local storage too, so it stays updated for next reload
-            localStorage.setItem('sim_app_config', JSON.stringify(globalAppConfig));
-            notify();
-          }
+        if (error) throw error;
+
+        if (data && data.config) {
+          console.log('✅ Fresh Config Loaded from DB');
+          globalAppConfig = { ...globalAppConfig, ...data.config };
+          // Save to local storage too, so it stays updated for next reload
+          localStorage.setItem('sim_app_config', JSON.stringify(globalAppConfig));
+          notify();
         }
-      } catch (e) {
-        console.warn('Initial sync failed, using local fallback.');
+      } catch (e: any) {
+        console.error('❌ Supabase Fetch Error:', e.message);
       }
     };
     
     fetchRemoteConfig();
 
-    // --- ENHANCED REALTIME FOR MOBILE ---
-    let subscription: any = null;
-    if (supabase) {
-      subscription = supabase
-        .channel('any') // Specific name can help
-        .on(
-          'postgres_changes',
-          { event: '*', schema: 'public', table: 'settings' }, // Catch all events
-          (payload) => {
-            if (payload.new && (payload.new as any).config) {
-              console.log('LIVE UPDATE RECEIVED:', (payload.new as any).config);
-              globalAppConfig = { ...globalAppConfig, ...(payload.new as any).config };
-              localStorage.setItem('sim_app_config', JSON.stringify(globalAppConfig));
-              notify();
-            }
+    // --- ULTRA-ROBUST REALTIME ---
+    const channel = supabase
+      .channel('db-changes') // Specific name can help
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'settings' }, // Catch all events
+        (payload) => {
+          console.log('🔔 REALTIME SIGNAL RECEIVED', payload);
+          const newConfig = (payload.new as any)?.config;
+          if (newConfig) {
+            globalAppConfig = { ...globalAppConfig, ...newConfig };
+            localStorage.setItem('sim_app_config', JSON.stringify(globalAppConfig));
+            notify();
           }
-        )
-        .subscribe((status) => {
-          console.log('Supabase Sync Status:', status);
-        });
-    }
+        }
+      )
+      .subscribe((status) => {
+        console.log('📡 Sync Status:', status);
+        if (status === 'SUBSCRIBED') console.log('✅ Live Connection Established!');
+      });
 
     return () => { 
       listeners.delete(listener); 
-      if (subscription) supabase.removeChannel(subscription);
+      supabase.removeChannel(channel);
     };
   }, []);
 
