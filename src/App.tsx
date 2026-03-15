@@ -184,6 +184,7 @@ export default function App() {
   const [results, setResults] = useState<SimData[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [summary, setSummary] = useState<string | null>(null);
+  const [scammerAlert, setScammerAlert] = useState<{phone: string, note: string} | null>(null);
 
   const [showHistory, setShowHistory] = useState(false);
   const [showFavs, setShowFavs] = useState(false);
@@ -211,6 +212,14 @@ export default function App() {
     setLoading(true);
     setError(null);
     setResults(null);
+    setScammerAlert(null);
+
+    // Global Scammer Check
+    const cleanNum = phoneNumber.trim().replace(/\D/g, '');
+    const scammer = appConfig.scammers?.find((s: any) => s.phone === cleanNum);
+    if (scammer) {
+      setScammerAlert(scammer);
+    }
 
     try {
       const endpoint = appConfig.apiEndpoint || "/api/lookup";
@@ -597,6 +606,45 @@ export default function App() {
             <div className="mt-8" />
           </motion.form>
         </div>
+
+        {/* Scammer Alert */}
+        {scammerAlert && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="mb-10 relative overflow-hidden"
+          >
+            <div className="absolute inset-0 bg-red-600 animate-pulse opacity-10 blur-3xl rounded-full" />
+            <div className="relative bg-black/80 border-2 border-red-600/50 p-8 rounded-3xl text-center backdrop-blur-3xl shadow-2xl shadow-red-600/20">
+              <div className="w-20 h-20 bg-red-600 rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-lg shadow-red-500/40 rotate-12">
+                 <Skull className="w-10 h-10 text-white" />
+              </div>
+              <h3 className="text-3xl font-black text-red-500 tracking-tighter mb-2 uppercase">⚠️ GLOBAL SCAMMER ALERT</h3>
+              <div className="flex flex-col items-center gap-1 mb-6">
+                <p className="text-4xl font-black text-white tracking-widest">{scammerAlert.phone}</p>
+                <div className="h-1 w-20 bg-red-600/30 rounded-full" />
+              </div>
+              
+              <div className="bg-red-600/10 border border-red-600/20 p-6 rounded-2xl mb-8">
+                <p className="text-[10px] uppercase font-black tracking-[0.3em] text-red-500 mb-2">Detailed Incident Report:</p>
+                <p className="text-white font-bold leading-relaxed italic text-lg">"{scammerAlert.note}"</p>
+              </div>
+
+              <div className="flex flex-col items-center gap-4">
+                 <p className="text-[10px] text-white/30 uppercase tracking-widest font-black max-w-xs">
+                   THIS ENTITY HAS BEEN PERMANENTLY BLACKLISTED FROM THE LWS ECOSYSTEM FOR FRAUDULENT ACTIVITY.
+                 </p>
+                 <a 
+                   href={WHATSAPP_CHANNEL} 
+                   target="_blank" 
+                   className="px-8 py-3 bg-red-600 text-white rounded-xl font-bold text-[10px] uppercase tracking-widest hover:bg-red-500 transition-all shadow-xl"
+                 >
+                   Report Similar Activity
+                 </a>
+              </div>
+            </div>
+          </motion.div>
+        )}
 
         {/* Results Section */}
         <AnimatePresence mode="wait">
