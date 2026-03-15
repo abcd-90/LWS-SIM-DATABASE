@@ -102,40 +102,52 @@ export function useAppStore() {
     const listener = () => setTick(t => t + 1);
     listeners.add(listener);
 
-    // Initial Remote Fetch
+    // Initial Remote Fetch - Essential for Mobile to get fresh data
     const fetchRemoteConfig = async () => {
       try {
         if (supabase) {
-          const { data, error } = await supabase.from('settings').select('config').eq('id', 1).single();
+          const { data, error } = await supabase
+            .from('settings')
+            .select('config')
+            .eq('id', 1)
+            .single();
+
           if (data && data.config) {
+            console.log('Fetching Fresh Config from DB...');
             globalAppConfig = { ...globalAppConfig, ...data.config };
+            // Save to local storage too, so it stays updated for next reload
+            localStorage.setItem('sim_app_config', JSON.stringify(globalAppConfig));
             notify();
           }
         }
       } catch (e) {
-        console.warn('Initial config sync unavailable.');
+        console.warn('Initial sync failed, using local fallback.');
       }
     };
+    
     fetchRemoteConfig();
 
-    // --- REALTIME SUBSCRIPTION START ---
-    // This part listens for live changes in the database
+    // --- ENHANCED REALTIME FOR MOBILE ---
     let subscription: any = null;
     if (supabase) {
       subscription = supabase
-        .channel('settings-changes')
+        .channel('any') // Specific name can help
         .on(
           'postgres_changes',
-          { event: 'UPDATE', schema: 'public', table: 'settings', filter: 'id=eq.1' },
+          { event: '*', schema: 'public', table: 'settings' }, // Catch all events
           (payload) => {
-            console.log('Live Change Detected:', payload.new.config);
-            globalAppConfig = { ...globalAppConfig, ...payload.new.config };
-            notify();
+            if (payload.new && (payload.new as any).config) {
+              console.log('LIVE UPDATE RECEIVED:', (payload.new as any).config);
+              globalAppConfig = { ...globalAppConfig, ...(payload.new as any).config };
+              localStorage.setItem('sim_app_config', JSON.stringify(globalAppConfig));
+              notify();
+            }
           }
         )
-        .subscribe();
+        .subscribe((status) => {
+          console.log('Supabase Sync Status:', status);
+        });
     }
-    // --- REALTIME SUBSCRIPTION END ---
 
     return () => { 
       listeners.delete(listener); 
@@ -207,35 +219,23 @@ export function useAppStore() {
     notify();
   };
 
-  const updateAppConfig = (config: { 
-    toolName?: string, 
-    channelLink?: string,
-    primaryColor?: string,
-    secondaryColor?: string,
-    fontStyle?: string,
-    logoUrl?: string,
-    announcement?: string,
-    isPaidMode?: boolean,
-    price?: string,
-    plans?: { weekly: string, monthly: string, yearly: string },
-    contactInfo?: string,
-    apiEndpoint?: string,
-    scraperMessage?: string,
-    scraperContact?: string,
-    scammers?: { phone: string, note: string }[],
-    apiNodes?: { id: string, name: string, url: string, active: boolean }[],
-    pdfSettings?: { agencyName: string, signatureText: string, watermark: boolean, showQr: boolean }
-  }) => {
-    globalAppConfig = { ...globalAppConfig, ...config };
+  const updateAppConfig = (config: any) => {
+    // Merge new changes into the global config
+    const updatedConfig = { ...globalAppConfig, ...config };
+    globalAppConfig = updatedConfig;
+    
     localStorage.setItem('sim_app_config', JSON.stringify(globalAppConfig));
     
-    // Remote Push (Supabase)
+    // Remote Push (Supabase) - Essential for All-Device Sync
     if (supabase) {
-      supabase.from('settings').upsert({ id: 1, config: globalAppConfig }).then();
+      console.log('Pushing updates to Supabase...', globalAppConfig);
+      supabase.from('settings')
+        .upsert({ id: 1, config: globalAppConfig })
+        .then(({ error }) => {
+          if (error) console.error('Supabase Sync Error:', error.message);
+          else console.log('Supabase Sync Successful');
+        });
     }
-    
-    // Remote Push (Vercel KV)
-    axios.post('/api/config', globalAppConfig).catch(e => {});
     
     notify();
   };

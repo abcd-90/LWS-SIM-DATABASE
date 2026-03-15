@@ -59,6 +59,25 @@ export default function AdminPanel({ onClose }: { onClose: () => void }) {
   const [scammerNum, setScammerNum] = useState('');
   const [scammerNote, setScammerNote] = useState('');
 
+  // Sync state with store updates (Fixed for All-Device Sync)
+  React.useEffect(() => {
+    setNewToolName(appConfig.toolName);
+    setNewChannelLink(appConfig.channelLink);
+    setPrimaryColor(appConfig.primaryColor || "#9333ea");
+    setSecondaryColor(appConfig.secondaryColor || "#3b82f6");
+    setFontStyle(appConfig.fontStyle || "font-sans");
+    setLogoUrl(appConfig.logoUrl || "");
+    setAnnouncement(appConfig.announcement || "");
+    setIsPaidMode(appConfig.isPaidMode || false);
+    setPriceWeekly(appConfig.plans?.weekly || "300");
+    setPriceMonthly(appConfig.plans?.monthly || "10000");
+    setPriceYearly(appConfig.plans?.yearly || "50000");
+    setContactInfo(appConfig.contactInfo || "");
+    setNewApiEndpoint(appConfig.apiEndpoint || "/api/lookup");
+    setScraperMessage(appConfig.scraperMessage || "");
+    setScraperContact(appConfig.scraperContact || "https://wa.link/8sind5");
+  }, [appConfig]);
+
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
     if (loginUser === adminSettings.username && loginPass === adminSettings.password) {
