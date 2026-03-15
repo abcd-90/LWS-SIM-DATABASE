@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import axios from 'axios';
 
 export interface SimData {
   name?: string;
@@ -95,6 +96,21 @@ export function useAppStore() {
   useEffect(() => {
     const listener = () => setTick(t => t + 1);
     listeners.add(listener);
+
+    // Initial Remote Fetch
+    const fetchRemoteConfig = async () => {
+      try {
+        const res = await axios.get('/api/config');
+        if (res.data && Object.keys(res.data).length > 0) {
+          globalAppConfig = { ...globalAppConfig, ...res.data };
+          notify();
+        }
+      } catch (e) {
+        console.warn('Vercel KV not connected, using LocalStorage/Static config.');
+      }
+    };
+    fetchRemoteConfig();
+
     return () => { listeners.delete(listener); };
   }, []);
 
@@ -183,6 +199,10 @@ export function useAppStore() {
   }) => {
     globalAppConfig = { ...globalAppConfig, ...config };
     localStorage.setItem('sim_app_config', JSON.stringify(globalAppConfig));
+    
+    // Remote Push
+    axios.post('/api/config', globalAppConfig).catch(e => console.warn('Sync failed: Vercel KV missing.'));
+    
     notify();
   };
 
