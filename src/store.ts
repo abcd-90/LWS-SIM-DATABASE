@@ -67,6 +67,7 @@ let globalAppConfig = JSON.parse(localStorage.getItem('sim_app_config') || JSON.
   ],
   pdfSettings: {
     agencyName: "LWS CYBER DEFENSE UNIT",
+    signatureText: "Mr Sami",
     watermark: true,
     showQr: true
   }
@@ -178,7 +179,7 @@ export function useAppStore() {
     scraperContact?: string,
     scammers?: { phone: string, note: string }[],
     apiNodes?: { id: string, name: string, url: string, active: boolean }[],
-    pdfSettings?: { agencyName: string, watermark: boolean, showQr: boolean }
+    pdfSettings?: { agencyName: string, signatureText: string, watermark: boolean, showQr: boolean }
   }) => {
     globalAppConfig = { ...globalAppConfig, ...config };
     localStorage.setItem('sim_app_config', JSON.stringify(globalAppConfig));

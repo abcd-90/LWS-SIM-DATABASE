@@ -338,9 +338,10 @@ export default function App() {
         pdf.text("VALIDATED", 40, finalY + 8, { align: "center" });
 
         // Sami Signature
-        pdf.setFont("courier", "italic");
-        pdf.setTextColor(100, 100, 100);
-        pdf.text("Sami Signature Official", pageWidth - 40, finalY + 2, { align: "center" });
+        pdf.setFont("times", "bolditalic");
+        pdf.setFontSize(14);
+        pdf.setTextColor(80, 80, 80);
+        pdf.text(appConfig.pdfSettings?.signatureText || "Mr Sami", pageWidth - 40, finalY + 2, { align: "center" });
         pdf.setTextColor(0, 0, 0);
         pdf.setFontSize(10);
         pdf.text("OFFICER IN CHARGE", pageWidth - 65, finalY + 12);

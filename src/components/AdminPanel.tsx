@@ -464,6 +464,15 @@ export default function AdminPanel({ onClose }: { onClose: () => void }) {
                             onChange={(e) => updateAppConfig({ pdfSettings: { ...appConfig.pdfSettings, agencyName: e.target.value } })}
                           />
                         </div>
+                        <div className="space-y-1">
+                          <label className="text-[10px] font-bold text-white/40 uppercase px-1">Officer Signature Text</label>
+                          <input 
+                            type="text" 
+                            className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-purple-500/50 outline-none"
+                            value={appConfig.pdfSettings?.signatureText || 'Mr Sami'}
+                            onChange={(e) => updateAppConfig({ pdfSettings: { ...appConfig.pdfSettings, signatureText: e.target.value } })}
+                          />
+                        </div>
                         <div className="flex items-center justify-between p-4 bg-white/5 border border-white/10 rounded-xl">
                            <div>
                               <p className="text-xs font-bold">PDF Watermark</p>
