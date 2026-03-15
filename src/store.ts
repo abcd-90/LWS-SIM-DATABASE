@@ -1,10 +1,6 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
-import { createClient } from '@supabase/supabase-js';
-
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || "";
-const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY || "";
-const supabase = (SUPABASE_URL && SUPABASE_KEY) ? createClient(SUPABASE_URL, SUPABASE_KEY) : null;
+import { supabase } from './lib/supabase';
 
 export interface SimData {
   name?: string;
@@ -106,21 +102,24 @@ export function useAppStore() {
     const fetchRemoteConfig = async () => {
       try {
         console.log('Attempting to fetch config from Supabase...');
-        const { data, error } = await supabase
-          .from('settings')
-          .select('config')
-          .eq('id', 1)
-          .single();
+        if (supabase) {
+          const { data, error } = await supabase
+            .from('settings')
+            .select('config')
+            .eq('id', 1)
+            .single();
 
-        if (error) throw error;
+          if (error) throw error;
 
-        if (data && data.config) {
-          console.log('✅ Fresh Config Loaded from DB');
-          globalAppConfig = { ...globalAppConfig, ...data.config };
-          // Save to local storage too, so it stays updated for next reload
-          localStorage.setItem('sim_app_config', JSON.stringify(globalAppConfig));
-          notify();
+          if (data && data.config) {
+            console.log('✅ Fresh Config Loaded from DB');
+            globalAppConfig = { ...globalAppConfig, ...data.config };
+            // Save to local storage too, so it stays updated for next reload
+            localStorage.setItem('sim_app_config', JSON.stringify(globalAppConfig));
+            notify();
+          }
         }
+
       } catch (e: any) {
         console.error('❌ Supabase Fetch Error:', e.message);
       }
@@ -129,29 +128,32 @@ export function useAppStore() {
     fetchRemoteConfig();
 
     // --- ULTRA-ROBUST REALTIME ---
-    const channel = supabase
-      .channel('db-changes') // Specific name can help
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'settings' }, // Catch all events
-        (payload) => {
-          console.log('🔔 REALTIME SIGNAL RECEIVED', payload);
-          const newConfig = (payload.new as any)?.config;
-          if (newConfig) {
-            globalAppConfig = { ...globalAppConfig, ...newConfig };
-            localStorage.setItem('sim_app_config', JSON.stringify(globalAppConfig));
-            notify();
+    let channel: any = null;
+    if (supabase) {
+      channel = supabase
+        .channel('db-changes') // Specific name can help
+        .on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: 'settings' }, // Catch all events
+          (payload) => {
+            console.log('🔔 REALTIME SIGNAL RECEIVED', payload);
+            const newConfig = (payload.new as any)?.config;
+            if (newConfig) {
+              globalAppConfig = { ...globalAppConfig, ...newConfig };
+              localStorage.setItem('sim_app_config', JSON.stringify(globalAppConfig));
+              notify();
+            }
           }
-        }
-      )
-      .subscribe((status) => {
-        console.log('📡 Sync Status:', status);
-        if (status === 'SUBSCRIBED') console.log('✅ Live Connection Established!');
-      });
+        )
+        .subscribe((status) => {
+          console.log('📡 Sync Status:', status);
+          if (status === 'SUBSCRIBED') console.log('✅ Live Connection Established!');
+        });
+    }
 
     return () => { 
       listeners.delete(listener); 
-      supabase.removeChannel(channel);
+      if (channel && supabase) supabase.removeChannel(channel);
     };
   }, []);
 
