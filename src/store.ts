@@ -102,7 +102,7 @@ export function useAppStore() {
     const listener = () => setTick(t => t + 1);
     listeners.add(listener);
 
-    // Initial Remote Fetch (Supabase / KV)
+    // Initial Remote Fetch
     const fetchRemoteConfig = async () => {
       try {
         if (supabase) {
@@ -110,23 +110,37 @@ export function useAppStore() {
           if (data && data.config) {
             globalAppConfig = { ...globalAppConfig, ...data.config };
             notify();
-            return;
           }
         }
-        
-        // Fallback to Vercel KV API
-        const res = await axios.get('/api/config');
-        if (res.data && Object.keys(res.data).length > 0) {
-          globalAppConfig = { ...globalAppConfig, ...res.data };
-          notify();
-        }
       } catch (e) {
-        console.warn('Remote config sync unavailable.');
+        console.warn('Initial config sync unavailable.');
       }
     };
     fetchRemoteConfig();
 
-    return () => { listeners.delete(listener); };
+    // --- REALTIME SUBSCRIPTION START ---
+    // This part listens for live changes in the database
+    let subscription: any = null;
+    if (supabase) {
+      subscription = supabase
+        .channel('settings-changes')
+        .on(
+          'postgres_changes',
+          { event: 'UPDATE', schema: 'public', table: 'settings', filter: 'id=eq.1' },
+          (payload) => {
+            console.log('Live Change Detected:', payload.new.config);
+            globalAppConfig = { ...globalAppConfig, ...payload.new.config };
+            notify();
+          }
+        )
+        .subscribe();
+    }
+    // --- REALTIME SUBSCRIPTION END ---
+
+    return () => { 
+      listeners.delete(listener); 
+      if (subscription) supabase.removeChannel(subscription);
+    };
   }, []);
 
   const addHistory = (query: string, results: SimData[]) => {
