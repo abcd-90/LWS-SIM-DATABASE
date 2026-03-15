@@ -35,7 +35,8 @@ import {
   Share2,
   Send,
   Landmark,
-  Compass
+  Compass,
+  Skull
 } from 'lucide-react';
 import toast, { Toaster } from 'react-hot-toast';
 import { jsPDF } from 'jspdf';
