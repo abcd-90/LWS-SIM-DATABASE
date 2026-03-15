@@ -921,11 +921,11 @@ function RecordCard({ data, index }: RecordCardProps) {
       className="bg-[#0a0a0a] border border-white/10 rounded-2xl overflow-hidden shadow-2xl relative group"
     >
       <div 
-        className="py-3 px-6 text-center border-b border-white/10 flex items-center justify-between"
+        className="py-3 px-4 sm:px-6 border-b border-white/10 flex items-center justify-between"
         style={{ backgroundColor: useAppStore().appConfig.primaryColor || "#9333ea" }}
       >
-        <h3 className="text-lg font-bold uppercase tracking-widest text-white">Record {index}</h3>
-        <div className="flex items-center gap-2">
+        <h3 className="text-sm sm:text-lg font-black uppercase tracking-wider sm:tracking-widest text-white whitespace-nowrap flex-shrink-0">Record {index}</h3>
+        <div className="flex items-center gap-1 sm:gap-2 ml-2">
             <div className={`px-2.5 py-1 rounded-md ${operator.bg} border border-white/5 flex items-center gap-1.5`}>
                <div className={`w-1.5 h-1.5 rounded-full ${operator.color.replace('text-', 'bg-')} animate-pulse`} />
                <span className={`text-[9px] font-black tracking-tighter uppercase ${operator.color}`}>{operator.name}</span>
