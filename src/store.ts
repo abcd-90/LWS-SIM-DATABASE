@@ -34,12 +34,8 @@ export interface UserProfile {
 // Global state
 let globalHistory = JSON.parse(localStorage.getItem('sim_history') || '[]');
 let globalFavorites = JSON.parse(localStorage.getItem('sim_favorites') || '[]');
-let globalBlockedIPs = JSON.parse(localStorage.getItem('sim_blocked_ips') || '[]');
-let globalMaintenance = localStorage.getItem('sim_maintenance') === 'true';
-let globalAdminLogs = JSON.parse(localStorage.getItem('sim_admin_logs') || '[]');
 import { DEFAULT_CONFIG } from './config';
 
-let globalVisitorCount = parseInt(localStorage.getItem('sim_visitor_count') || '0');
 let globalUser: UserProfile | null = JSON.parse(localStorage.getItem('sim_user') || 'null');
 
 // App Configuration (Branding & UI)
@@ -72,7 +68,11 @@ let globalAppConfig = JSON.parse(localStorage.getItem('sim_app_config') || JSON.
     signatureText: "Mr Sami",
     watermark: true,
     showQr: true
-  }
+  },
+  adminLogs: [],
+  blockedIPs: [],
+  maintenance: false,
+  visitorCount: 0
 }));
 
 let globalVipUsers = JSON.parse(localStorage.getItem('sim_vip_users') || '[]');
@@ -177,15 +177,13 @@ export function useAppStore() {
       timestamp: new Date().toLocaleString(),
       ip: 'Detected'
     };
-    globalAdminLogs = [newLog, ...globalAdminLogs].slice(0, 100);
-    localStorage.setItem('sim_admin_logs', JSON.stringify(globalAdminLogs));
-    notify();
+    const updatedLogs = [newLog, ...(globalAppConfig.adminLogs || [])].slice(0, 100);
+    updateAppConfig({ adminLogs: updatedLogs });
   };
 
   const incrementVisitors = () => {
-    globalVisitorCount += 1;
-    localStorage.setItem('sim_visitor_count', globalVisitorCount.toString());
-    notify();
+    const newCount = (globalAppConfig.visitorCount || 0) + 1;
+    updateAppConfig({ visitorCount: newCount });
   };
 
   const toggleFavorite = (record: SimData) => {
@@ -204,15 +202,15 @@ export function useAppStore() {
   };
 
   const setBlockedIPs = (val: string[] | ((prev: string[]) => string[])) => {
-    globalBlockedIPs = typeof val === 'function' ? val(globalBlockedIPs) : val;
-    localStorage.setItem('sim_blocked_ips', JSON.stringify(globalBlockedIPs));
-    notify();
+    const current = globalAppConfig.blockedIPs || [];
+    const updated = typeof val === 'function' ? val(current) : val;
+    updateAppConfig({ blockedIPs: updated });
   };
 
   const setMaintenance = (val: boolean | ((prev: boolean) => boolean)) => {
-    globalMaintenance = typeof val === 'function' ? val(globalMaintenance) : val;
-    localStorage.setItem('sim_maintenance', globalMaintenance.toString());
-    notify();
+    const current = globalAppConfig.maintenance || false;
+    const updated = typeof val === 'function' ? val(current) : val;
+    updateAppConfig({ maintenance: updated });
   };
 
   const setUser = (user: UserProfile | null) => {
@@ -275,10 +273,10 @@ export function useAppStore() {
   return {
     history: globalHistory, addHistory,
     favorites: globalFavorites, toggleFavorite, isFavorite,
-    blockedIPs: globalBlockedIPs, setBlockedIPs,
-    maintenance: globalMaintenance, setMaintenance,
-    adminLogs: globalAdminLogs,
-    visitorCount: globalVisitorCount,
+    blockedIPs: globalAppConfig.blockedIPs || [], setBlockedIPs,
+    maintenance: globalAppConfig.maintenance || false, setMaintenance,
+    adminLogs: globalAppConfig.adminLogs || [],
+    visitorCount: globalAppConfig.visitorCount || 0,
     incrementVisitors,
     user: globalUser, setUser,
     appConfig: globalAppConfig, updateAppConfig,
