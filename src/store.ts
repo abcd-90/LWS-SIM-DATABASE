@@ -38,7 +38,7 @@ import { DEFAULT_CONFIG } from './config';
 
 let globalUser: UserProfile | null = JSON.parse(localStorage.getItem('sim_user') || 'null');
 
-// App Configuration (Branding & UI)
+// App Configuration (Branding & UI - id: 1)
 let globalAppConfig = JSON.parse(localStorage.getItem('sim_app_config') || JSON.stringify({
   toolName: "LWS Sim Database",
   channelLink: "https://www.whatsapp.com/channel/0029Vb688BZ6GcGO9OwJc621",
@@ -68,7 +68,11 @@ let globalAppConfig = JSON.parse(localStorage.getItem('sim_app_config') || JSON.
     signatureText: "Mr Sami",
     watermark: true,
     showQr: true
-  },
+  }
+}));
+
+// Dynamic Stats (Logs, Visitors, Security - id: 2)
+let globalStats = JSON.parse(localStorage.getItem('sim_stats') || JSON.stringify({
   adminLogs: [],
   blockedIPs: [],
   maintenance: false,
@@ -91,64 +95,61 @@ function notify() {
 }
 
 export function useAppStore() {
-  // Dummy state to trigger re-renders
   const [, setTick] = useState(0);
 
   useEffect(() => {
     const listener = () => setTick(t => t + 1);
     listeners.add(listener);
 
-    // Initial Remote Fetch - Essential for Mobile to get fresh data
-    const fetchRemoteConfig = async () => {
+    const fetchRemoteData = async () => {
       try {
-        console.log('Attempting to fetch config from Supabase...');
-        if (supabase) {
-          const { data, error } = await supabase
-            .from('settings')
-            .select('config')
-            .eq('id', 1)
-            .single();
-
-          if (error) throw error;
-
-          if (data && data.config) {
-            console.log('✅ Fresh Config Loaded from DB');
-            globalAppConfig = { ...globalAppConfig, ...data.config };
-            // Save to local storage too, so it stays updated for next reload
-            localStorage.setItem('sim_app_config', JSON.stringify(globalAppConfig));
-            notify();
-          }
+        if (!supabase) return;
+        
+        // Fetch Row 1 (Config)
+        const { data: configData } = await supabase.from('settings').select('config').eq('id', 1).single();
+        if (configData?.config) {
+          globalAppConfig = { ...globalAppConfig, ...configData.config };
+          localStorage.setItem('sim_app_config', JSON.stringify(globalAppConfig));
         }
 
+        // Fetch Row 2 (Stats)
+        const { data: statsData } = await supabase.from('settings').select('config').eq('id', 2).single();
+        if (statsData?.config) {
+          globalStats = { ...globalStats, ...statsData.config };
+          localStorage.setItem('sim_stats', JSON.stringify(globalStats));
+        }
+
+        notify();
       } catch (e: any) {
         console.error('❌ Supabase Fetch Error:', e.message);
       }
     };
     
-    fetchRemoteConfig();
+    fetchRemoteData();
 
-    // --- ULTRA-ROBUST REALTIME ---
     let channel: any = null;
     if (supabase) {
       channel = supabase
-        .channel('db-changes') // Specific name can help
+        .channel('db-changes')
         .on(
           'postgres_changes',
-          { event: '*', schema: 'public', table: 'settings' }, // Catch all events
+          { event: '*', schema: 'public', table: 'settings' },
           (payload) => {
-            console.log('🔔 REALTIME SIGNAL RECEIVED', payload);
+            const id = (payload.new as any)?.id;
             const newConfig = (payload.new as any)?.config;
             if (newConfig) {
-              globalAppConfig = { ...globalAppConfig, ...newConfig };
-              localStorage.setItem('sim_app_config', JSON.stringify(globalAppConfig));
+              if (id === 1) {
+                globalAppConfig = { ...globalAppConfig, ...newConfig };
+                localStorage.setItem('sim_app_config', JSON.stringify(globalAppConfig));
+              } else if (id === 2) {
+                globalStats = { ...globalStats, ...newConfig };
+                localStorage.setItem('sim_stats', JSON.stringify(globalStats));
+              }
               notify();
             }
           }
         )
-        .subscribe((status) => {
-          console.log('📡 Sync Status:', status);
-          if (status === 'SUBSCRIBED') console.log('✅ Live Connection Established!');
-        });
+        .subscribe();
     }
 
     return () => { 
@@ -160,12 +161,7 @@ export function useAppStore() {
   const addHistory = (query: string, results: SimData[]) => {
     globalHistory = [{ query, date: new Date().toLocaleDateString() + " " + new Date().toLocaleTimeString(), results }, ...globalHistory].slice(0, 50);
     localStorage.setItem('sim_history', JSON.stringify(globalHistory));
-    
-    // Also add to Admin Logs
-    if (globalUser) {
-      addAdminLog(query);
-    }
-    
+    if (globalUser) addAdminLog(query);
     notify();
   };
 
@@ -177,13 +173,13 @@ export function useAppStore() {
       timestamp: new Date().toLocaleString(),
       ip: 'Detected'
     };
-    const updatedLogs = [newLog, ...(globalAppConfig.adminLogs || [])].slice(0, 100);
-    updateAppConfig({ adminLogs: updatedLogs });
+    const updatedLogs = [newLog, ...(globalStats.adminLogs || [])].slice(0, 100);
+    updateStatsConfig({ adminLogs: updatedLogs });
   };
 
   const incrementVisitors = () => {
-    const newCount = (globalAppConfig.visitorCount || 0) + 1;
-    updateAppConfig({ visitorCount: newCount });
+    const newCount = (globalStats.visitorCount || 0) + 1;
+    updateStatsConfig({ visitorCount: newCount });
   };
 
   const toggleFavorite = (record: SimData) => {
@@ -202,15 +198,15 @@ export function useAppStore() {
   };
 
   const setBlockedIPs = (val: string[] | ((prev: string[]) => string[])) => {
-    const current = globalAppConfig.blockedIPs || [];
+    const current = globalStats.blockedIPs || [];
     const updated = typeof val === 'function' ? val(current) : val;
-    updateAppConfig({ blockedIPs: updated });
+    updateStatsConfig({ blockedIPs: updated });
   };
 
   const setMaintenance = (val: boolean | ((prev: boolean) => boolean)) => {
-    const current = globalAppConfig.maintenance || false;
+    const current = globalStats.maintenance || false;
     const updated = typeof val === 'function' ? val(current) : val;
-    updateAppConfig({ maintenance: updated });
+    updateStatsConfig({ maintenance: updated });
   };
 
   const setUser = (user: UserProfile | null) => {
@@ -220,23 +216,20 @@ export function useAppStore() {
   };
 
   const updateAppConfig = (config: any) => {
-    // Merge new changes into the global config
-    const updatedConfig = { ...globalAppConfig, ...config };
-    globalAppConfig = updatedConfig;
-    
+    globalAppConfig = { ...globalAppConfig, ...config };
     localStorage.setItem('sim_app_config', JSON.stringify(globalAppConfig));
-    
-    // Remote Push (Supabase) - Essential for All-Device Sync
     if (supabase) {
-      console.log('Pushing updates to Supabase...', globalAppConfig);
-      supabase.from('settings')
-        .upsert({ id: 1, config: globalAppConfig })
-        .then(({ error }) => {
-          if (error) console.error('Supabase Sync Error:', error.message);
-          else console.log('Supabase Sync Successful');
-        });
+      supabase.from('settings').upsert({ id: 1, config: globalAppConfig }).then();
     }
-    
+    notify();
+  };
+
+  const updateStatsConfig = (config: any) => {
+    globalStats = { ...globalStats, ...config };
+    localStorage.setItem('sim_stats', JSON.stringify(globalStats));
+    if (supabase) {
+      supabase.from('settings').upsert({ id: 2, config: globalStats }).then();
+    }
     notify();
   };
 
@@ -257,7 +250,6 @@ export function useAppStore() {
     if (duration === 'weekly') expiry.setDate(now.getDate() + 7);
     if (duration === 'monthly') expiry.setMonth(now.getMonth() + 1);
     if (duration === 'yearly') expiry.setFullYear(now.getFullYear() + 1);
-
     const newUser = { email, expiry: expiry.getTime(), plan: duration };
     globalVipUsers = [...globalVipUsers.filter((u: any) => u.email !== email), newUser];
     localStorage.setItem('sim_vip_users', JSON.stringify(globalVipUsers));
@@ -273,10 +265,10 @@ export function useAppStore() {
   return {
     history: globalHistory, addHistory,
     favorites: globalFavorites, toggleFavorite, isFavorite,
-    blockedIPs: globalAppConfig.blockedIPs || [], setBlockedIPs,
-    maintenance: globalAppConfig.maintenance || false, setMaintenance,
-    adminLogs: globalAppConfig.adminLogs || [],
-    visitorCount: globalAppConfig.visitorCount || 0,
+    blockedIPs: globalStats.blockedIPs || [], setBlockedIPs,
+    maintenance: globalStats.maintenance || false, setMaintenance,
+    adminLogs: globalStats.adminLogs || [],
+    visitorCount: globalStats.visitorCount || 0,
     incrementVisitors,
     user: globalUser, setUser,
     appConfig: globalAppConfig, updateAppConfig,
